@@ -15,7 +15,7 @@ from app.analytics.anomaly_detector import DetectedAnomaly
 logger = logging.getLogger("business_pulse.orchestrator")
 
 MIN_SCORE_FOR_INVESTIGATION = 25.0
-MAX_ANOMALIES_PER_RUN = 6
+MAX_ANOMALIES_PER_RUN = 3
 
 
 class AgentOrchestrator:
@@ -138,6 +138,7 @@ class AgentOrchestrator:
             "kpi_name": a.kpi_name, "detection_method": a.detection_method,
             "actual_value": a.actual_value, "expected_value": a.expected_value,
             "deviation_pct": a.deviation_pct, "z_score": a.z_score,
+            "score": a.score, "severity": a.severity,
             "entity_type": a.entity_type, "entity_id": a.entity_id, "entity_name": a.entity_name,
             "marketplace_id": a.marketplace_id, "metadata": a.metadata,
         }

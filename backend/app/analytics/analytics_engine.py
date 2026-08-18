@@ -80,7 +80,7 @@ class AnalyticsEngine:
         if self._inventory_cache is not None and as_of is None:
             return self._inventory_cache
 
-        res = self.client.table("inventory").select("*").limit(25000).execute()
+        res = self.client.table("inventory").select("*").order("date", desc=True).limit(500).execute()
         df = pd.DataFrame(res.data or [])
         if df.empty:
             return df
@@ -232,7 +232,8 @@ class AnalyticsEngine:
                 price = float(matched["price"].iloc[0])
         if dos is None or dos >= exposure_days_cap:
             return 0.0
-        return round(velocity * min(dos, exposure_days_cap) * price, 2)
+        lost_days = max(1.0, exposure_days_cap - float(dos or 0.0))
+        return round(velocity * lost_days * price, 2)
 
     def get_marketplace_performance(self, days: int = 30) -> list:
         start, end, prev_start, prev_end = self.period(days)

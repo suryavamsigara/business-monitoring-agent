@@ -11,10 +11,16 @@ class Settings:
     SUPABASE_KEY: str = os.getenv("SUPABASE_KEY", "").strip()
     SUPABASE_SERVICE_KEY: str = os.getenv("SUPABASE_SERVICE_KEY", "").strip()
 
-    LLM_API_KEY: str = os.getenv("LLM_API_KEY", "").strip()
-    LLM_MODEL: str = os.getenv("LLM_MODEL", "gpt-4o-mini").strip()
+    # Automatically read LLM API key from LLM_API_KEY, DEEPSEEK_API_KEY, or OPENAI_API_KEY
+    LLM_API_KEY: str = (
+        os.getenv("LLM_API_KEY") or os.getenv("DEEPSEEK_API_KEY") or os.getenv("OPENAI_API_KEY") or ""
+    ).strip()
+
+    _raw_model = os.getenv("LLM_MODEL", "deepseek-v4-flash").strip()
+    LLM_MODEL: str = "deepseek-v4-flash" if "deepseek" in _raw_model.lower() else _raw_model
+
     LLM_BASE_URL: str = os.getenv("LLM_BASE_URL", "").strip() or (
-        "https://api.deepseek.com" if "deepseek" in os.getenv("LLM_MODEL", "gpt-4o-mini").lower() else "https://api.openai.com/v1"
+        "https://api.deepseek.com" if ("deepseek" in LLM_MODEL.lower() or os.getenv("DEEPSEEK_API_KEY")) else "https://api.openai.com/v1"
     )
 
     ALLOWED_ORIGINS: list = [

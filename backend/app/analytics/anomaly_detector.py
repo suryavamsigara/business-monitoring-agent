@@ -34,6 +34,8 @@ class DetectedAnomaly:
     expected_value: float
     deviation_pct: float
     z_score: Optional[float] = None
+    score: Optional[float] = None
+    severity: Optional[str] = None
     entity_type: Optional[str] = None
     entity_id: Optional[int] = None
     entity_name: Optional[str] = None
@@ -46,128 +48,106 @@ class DetectedAnomaly:
         self.deviation_pct = float(self.deviation_pct)
         if self.z_score is not None:
             self.z_score = float(self.z_score)
+        if self.score is not None:
+            self.score = float(self.score)
         if self.entity_id is not None:
             self.entity_id = int(self.entity_id)
         if self.marketplace_id is not None:
             self.marketplace_id = int(self.marketplace_id)
-        self.metadata = clean_num(self.metadata) or {}
+        if self.metadata is not None:
+            self.metadata = clean_num(self.metadata)
 
 
 class AnomalyDetector:
-    """Supports threshold, relative-change, rolling-baseline, z-score, and
-    compound (multi-signal) anomaly detection."""
-
     def __init__(self):
-        self.baseline_calc = BaselineCalculator()
+        self.calc = BaselineCalculator()
 
-    def detect_relative_change(self, kpi_name: str, series: pd.Series, threshold_pct: float, **entity) -> Optional[DetectedAnomaly]:
-        if series is None or len(series) < 2:
+    def detect_rolling_baseline(self, kpi_name: str, series: pd.Series, threshold_ratio: float,
+                                  entity_type: str = None, entity_id: int = None,
+                                  entity_name: str = None, marketplace_id: int = None) -> Optional[DetectedAnomaly]:
+        if series.empty or len(series) < 8:
             return None
-        actual = float(series.iloc[-1])
-        previous = float(series.iloc[-2])
-        if previous == 0:
+        b = self.calc.rolling_mean(series)
+        if b.expected <= 0:
             return None
-        deviation = (actual - previous) / previous
-        if abs(deviation) >= threshold_pct:
+        dev_pct = b.deviation_pct
+        if abs(dev_pct) >= threshold_ratio * 100:
             return DetectedAnomaly(
-                kpi_name=kpi_name, detection_method="relative_change",
-                actual_value=actual, expected_value=previous, deviation_pct=round(deviation * 100, 2),
-                metadata={"threshold_pct": float(threshold_pct * 100)}, **entity,
+                kpi_name=kpi_name, detection_method="rolling_baseline", actual_value=b.actual,
+                expected_value=b.expected, deviation_pct=dev_pct, entity_type=entity_type,
+                entity_id=entity_id, entity_name=entity_name, marketplace_id=marketplace_id,
+                metadata={"threshold_pct": threshold_ratio * 100, "window_days": b.window_days},
             )
         return None
 
-    def detect_rolling_baseline(self, kpi_name: str, series: pd.Series, threshold_pct: float, **entity) -> Optional[DetectedAnomaly]:
-        if series is None or len(series) < 2:
+    def detect_zscore(self, kpi_name: str, series: pd.Series, z_threshold: float = 2.0,
+                      entity_type: str = None, entity_id: int = None,
+                      entity_name: str = None, marketplace_id: int = None) -> Optional[DetectedAnomaly]:
+        if series.empty or len(series) < 14:
             return None
-        actual = float(series.iloc[-1])
-        baseline: Baseline = self.baseline_calc.calculate(series, exclude_last_n=1)
-        if baseline.expected == 0:
+        b = self.calc.z_score(series)
+        if b.z_score is None:
             return None
-        deviation = (actual - baseline.expected) / baseline.expected
-        if abs(deviation) >= threshold_pct:
+        if abs(b.z_score) >= z_threshold:
             return DetectedAnomaly(
-                kpi_name=kpi_name, detection_method="rolling_baseline",
-                actual_value=actual, expected_value=round(float(baseline.expected), 2),
-                deviation_pct=round(deviation * 100, 2),
-                metadata={
-                    "threshold_pct": float(threshold_pct * 100),
-                    "baseline_sample_size": int(baseline.sample_size),
-                    "sufficient_history": bool(baseline.sufficient_history),
-                },
-                **entity,
+                kpi_name=kpi_name, detection_method="zscore", actual_value=b.actual,
+                expected_value=b.expected, deviation_pct=b.deviation_pct, z_score=b.z_score,
+                entity_type=entity_type, entity_id=entity_id, entity_name=entity_name,
+                marketplace_id=marketplace_id, metadata={"z_threshold": z_threshold, "z_score": b.z_score},
             )
         return None
 
-    def detect_zscore(self, kpi_name: str, series: pd.Series, z_threshold: float = 2.0, **entity) -> Optional[DetectedAnomaly]:
-        if series is None or len(series) < 2:
+    def detect_threshold(self, kpi_name: str, actual: float, expected: float, ratio: float,
+                         entity_type: str = None, entity_id: int = None,
+                         entity_name: str = None, marketplace_id: int = None) -> Optional[DetectedAnomaly]:
+        if expected <= 0:
             return None
-        actual = float(series.iloc[-1])
-        baseline: Baseline = self.baseline_calc.calculate(series, exclude_last_n=1)
-        if baseline.std == 0 or not baseline.sufficient_history:
-            return None  # handle zero/unavailable std gracefully
-        z = (actual - baseline.mean) / baseline.std
-        if abs(z) > z_threshold:
-            deviation = (actual - baseline.mean) / baseline.mean if baseline.mean else 0
+        dev_pct = ((actual - expected) / expected) * 100
+        if actual < expected * ratio:
             return DetectedAnomaly(
-                kpi_name=kpi_name, detection_method="zscore",
-                actual_value=actual, expected_value=round(float(baseline.mean), 2),
-                deviation_pct=round(deviation * 100, 2), z_score=round(float(z), 2),
-                metadata={"z_threshold": float(z_threshold), "std": round(float(baseline.std), 3)},
-                **entity,
-            )
-        return None
-
-    def detect_threshold(self, kpi_name: str, actual: float, expected: float, ratio: float = 0.90, **entity) -> Optional[DetectedAnomaly]:
-        """Simple threshold check: actual < expected * ratio."""
-        if expected == 0:
-            return None
-        actual_flt = float(actual)
-        expected_flt = float(expected)
-        if actual_flt < expected_flt * ratio:
-            deviation = (actual_flt - expected_flt) / expected_flt
-            return DetectedAnomaly(
-                kpi_name=kpi_name, detection_method="threshold",
-                actual_value=actual_flt, expected_value=expected_flt, deviation_pct=round(deviation * 100, 2),
-                metadata={"ratio": float(ratio)}, **entity,
+                kpi_name=kpi_name, detection_method="threshold", actual_value=actual,
+                expected_value=expected, deviation_pct=dev_pct, entity_type=entity_type,
+                entity_id=entity_id, entity_name=entity_name, marketplace_id=marketplace_id,
+                metadata={"ratio": ratio},
             )
         return None
 
     def detect_compound_conversion_issue(self, traffic_change_pct: float, conversion_change_pct: float,
-                                          orders_change_pct: float, **entity) -> Optional[DetectedAnomaly]:
-        """Traffic stable/up + conversion sharply down + orders down."""
-        t = float(traffic_change_pct)
-        c = float(conversion_change_pct)
-        o = float(orders_change_pct)
-        if t >= -3 and c <= -10 and o < 0:
+                                         orders_change_pct: float, entity_type: str = None,
+                                         entity_id: int = None, entity_name: str = None,
+                                         marketplace_id: int = None) -> Optional[DetectedAnomaly]:
+        if traffic_change_pct >= -10 and conversion_change_pct <= -20 and orders_change_pct <= -15:
             return DetectedAnomaly(
                 kpi_name="conversion_rate", detection_method="compound",
-                actual_value=c, expected_value=0.0, deviation_pct=c,
+                actual_value=conversion_change_pct, expected_value=0.0,
+                deviation_pct=conversion_change_pct, entity_type=entity_type,
+                entity_id=entity_id, entity_name=entity_name, marketplace_id=marketplace_id,
                 metadata={
-                    "pattern": "conversion_issue",
-                    "traffic_change_pct": t,
-                    "conversion_change_pct": c,
-                    "orders_change_pct": o,
+                    "pattern": "traffic_sustained_conversion_dropped",
+                    "traffic_change_pct": traffic_change_pct,
+                    "conversion_change_pct": conversion_change_pct,
+                    "orders_change_pct": orders_change_pct,
+                    "suspected_cause": "Broken listing / pricing friction / bad reviews / OOS variants",
                 },
-                **entity,
             )
         return None
 
     def detect_compound_inventory_risk(self, revenue_change_pct: float, traffic_change_pct: float,
-                                        days_of_stock: Optional[float], **entity) -> Optional[DetectedAnomaly]:
-        """Revenue down + traffic stable + inventory critical (<7 days)."""
-        r = float(revenue_change_pct)
-        t = float(traffic_change_pct)
-        dos = float(days_of_stock) if days_of_stock is not None else None
-        if r <= -5 and abs(t) <= 8 and dos is not None and dos < 7:
+                                       days_of_stock: Optional[float], entity_type: str = None,
+                                       entity_id: int = None, entity_name: str = None,
+                                       marketplace_id: int = None) -> Optional[DetectedAnomaly]:
+        if days_of_stock is not None and days_of_stock < 7 and traffic_change_pct >= -10:
             return DetectedAnomaly(
-                kpi_name="revenue", detection_method="compound",
-                actual_value=r, expected_value=0.0, deviation_pct=r,
+                kpi_name="inventory_days", detection_method="compound",
+                actual_value=days_of_stock, expected_value=14.0,
+                deviation_pct=((days_of_stock - 14.0) / 14.0) * 100,
+                entity_type=entity_type, entity_id=entity_id, entity_name=entity_name,
+                marketplace_id=marketplace_id,
                 metadata={
-                    "pattern": "inventory_driven_risk",
-                    "revenue_change_pct": r,
-                    "traffic_change_pct": t,
-                    "days_of_stock": dos,
+                    "pattern": "high_demand_low_stock",
+                    "days_of_stock": days_of_stock,
+                    "traffic_change_pct": traffic_change_pct,
+                    "suspected_cause": "Imminent stockout with high remaining demand",
                 },
-                **entity,
             )
         return None

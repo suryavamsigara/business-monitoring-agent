@@ -1,18 +1,17 @@
 import React, { useState, useEffect, useRef } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { assistantApi } from "../api/assistantApi";
 import { 
   Bot, 
   Send, 
   Sparkles, 
   X, 
-  RefreshCw, 
-  Layers, 
   Wrench, 
-  ChevronRight, 
   User, 
-  MessageSquare,
   HelpCircle,
-  ShieldAlert
+  Copy,
+  Check
 } from "lucide-react";
 import { cn } from "../utils/cn";
 
@@ -36,14 +35,15 @@ export function AgentAssistantModal({
     {
       role: "assistant",
       content: alertTitle
-        ? `Hello! I am your **Business Pulse Agent Assistant**. I've loaded the investigation context for **${alertTitle}**. Ask me about detected anomalies, tool evidence, root-cause hypotheses, or prioritized recommendations.`
-        : "Hello! I am your **Business Pulse Agent Assistant**. Ask me anything about active alerts, recent agent runs, monitored KPI anomalies, or what actions to prioritize first.",
+        ? `Hello! I am your **Business Pulse Agent Assistant**. I've loaded the investigation context for **${alertTitle}**.\n\nAsk me about detected anomalies, tool evidence, root-cause hypotheses, or prioritized recommendations.`
+        : "Hello! I am your **Business Pulse Agent Assistant**.\n\nAsk me anything about active alerts, recent agent runs, monitored KPI anomalies, or what actions to prioritize first.",
       tool_calls: [],
       mode: "assistant",
     },
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [copiedIdx, setCopiedIdx] = useState(null);
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -53,6 +53,12 @@ export function AgentAssistantModal({
   useEffect(() => {
     scrollToBottom();
   }, [messages, isLoading]);
+
+  const handleCopy = (text, idx) => {
+    navigator.clipboard.writeText(text);
+    setCopiedIdx(idx);
+    setTimeout(() => setCopiedIdx(null), 2000);
+  };
 
   const handleSend = async (userText) => {
     const textToSend = userText || input;
@@ -105,7 +111,7 @@ export function AgentAssistantModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-end bg-slate-950/70 backdrop-blur-sm p-2 sm:p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-lg h-[92vh] max-h-[800px] flex flex-col rounded-2xl bg-slate-900 border border-slate-700 shadow-2xl overflow-hidden">
+      <div className="w-full max-w-lg h-[92vh] max-h-[820px] flex flex-col rounded-2xl bg-slate-900 border border-slate-700 shadow-2xl overflow-hidden">
         {/* Header */}
         <div className="p-4 border-b border-slate-800 bg-slate-950 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -141,7 +147,7 @@ export function AgentAssistantModal({
             return (
               <div
                 key={idx}
-                className={cn("flex gap-3", isUser ? "justify-end" : "justify-start")}
+                className={cn("flex gap-3 group", isUser ? "justify-end" : "justify-start")}
               >
                 {!isUser && (
                   <div className="w-7 h-7 rounded-lg bg-amber-500/20 border border-amber-500/30 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -151,18 +157,87 @@ export function AgentAssistantModal({
 
                 <div
                   className={cn(
-                    "max-w-[85%] rounded-xl p-3.5 space-y-2 leading-relaxed font-sans",
+                    "max-w-[88%] rounded-xl p-3.5 space-y-2 leading-relaxed relative",
                     isUser
                       ? "bg-amber-500 text-slate-950 font-medium rounded-tr-none shadow-md"
                       : "bg-slate-950/80 border border-slate-800 text-slate-200 rounded-tl-none shadow-sm"
                   )}
                 >
-                  <div className="whitespace-pre-wrap">{msg.content}</div>
+                  {/* Markdown Renderer for Assistant and User */}
+                  <div className="prose prose-invert prose-xs max-w-none break-words">
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      components={{
+                        p: ({ children }) => <p className="mb-2 last:mb-0 leading-relaxed">{children}</p>,
+                        strong: ({ children }) => (
+                          <strong className={isUser ? "font-bold text-slate-950" : "font-bold text-amber-300"}>
+                            {children}
+                          </strong>
+                        ),
+                        ul: ({ children }) => <ul className="list-disc pl-4 mb-2 space-y-1">{children}</ul>,
+                        ol: ({ children }) => <ol className="list-decimal pl-4 mb-2 space-y-1">{children}</ol>,
+                        li: ({ children }) => <li className="leading-relaxed">{children}</li>,
+                        code: ({ inline, className, children, ...props }) => {
+                          return inline ? (
+                            <code className="px-1.5 py-0.5 rounded bg-slate-800 text-cyan-300 font-mono text-[11px]" {...props}>
+                              {children}
+                            </code>
+                          ) : (
+                            <div className="my-2 rounded-lg bg-slate-900 border border-slate-800 p-2.5 overflow-x-auto">
+                              <pre className="font-mono text-[11px] text-cyan-300 m-0">
+                                <code {...props}>{children}</code>
+                              </pre>
+                            </div>
+                          );
+                        },
+                        blockquote: ({ children }) => (
+                          <blockquote className="border-l-2 border-amber-500/50 pl-3 my-2 text-slate-400 italic">
+                            {children}
+                          </blockquote>
+                        ),
+                        table: ({ children }) => (
+                          <div className="my-2 overflow-x-auto">
+                            <table className="min-w-full text-left border-collapse border border-slate-800 text-[11px]">
+                              {children}
+                            </table>
+                          </div>
+                        ),
+                        th: ({ children }) => (
+                          <th className="border border-slate-800 bg-slate-900 px-2 py-1 text-slate-300 font-semibold">
+                            {children}
+                          </th>
+                        ),
+                        td: ({ children }) => (
+                          <td className="border border-slate-800 px-2 py-1 text-slate-400">
+                            {children}
+                          </td>
+                        ),
+                        a: ({ href, children }) => (
+                          <a href={href} target="_blank" rel="noreferrer" className="text-cyan-400 underline hover:text-cyan-300">
+                            {children}
+                          </a>
+                        ),
+                      }}
+                    >
+                      {msg.content}
+                    </ReactMarkdown>
+                  </div>
+
+                  {/* Copy button on hover for assistant messages */}
+                  {!isUser && (
+                    <button
+                      onClick={() => handleCopy(msg.content, idx)}
+                      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1 rounded bg-slate-850 hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-all"
+                      title="Copy response"
+                    >
+                      {copiedIdx === idx ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                    </button>
+                  )}
 
                   {/* If tools were invoked */}
                   {!isUser && msg.tool_calls && msg.tool_calls.length > 0 && (
-                    <div className="mt-2 pt-2 border-t border-slate-800/80">
-                      <div className="text-[10px] uppercase font-bold text-amber-400/90 flex items-center gap-1 mb-1">
+                    <div className="mt-2.5 pt-2.5 border-t border-slate-800/80">
+                      <div className="text-[10px] uppercase font-bold text-amber-400/90 flex items-center gap-1 mb-1.5">
                         <Wrench className="w-3 h-3" />
                         <span>Tools Executed ({msg.tool_calls.length}):</span>
                       </div>
@@ -170,7 +245,7 @@ export function AgentAssistantModal({
                         {msg.tool_calls.map((t, tIdx) => (
                           <div
                             key={tIdx}
-                            className="text-[11px] font-mono bg-slate-900 px-2 py-0.5 rounded border border-slate-800 text-cyan-300"
+                            className="text-[11px] font-mono bg-slate-900 px-2.5 py-1 rounded border border-slate-800 text-cyan-300 truncate"
                           >
                             {t.tool}({JSON.stringify(t.args || {})})
                           </div>
@@ -180,7 +255,7 @@ export function AgentAssistantModal({
                   )}
 
                   {!isUser && msg.error && (
-                    <div className="text-[10px] text-amber-400 font-mono italic">
+                    <div className="text-[10px] text-amber-400 font-mono italic mt-1">
                       {msg.error}
                     </div>
                   )}
