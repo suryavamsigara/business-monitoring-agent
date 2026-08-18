@@ -1,25 +1,26 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from supabase import Client
 from app.database.session import get_db
 from app.agent.orchestrator import AgentOrchestrator
 from app.repositories.agent_run_repository import AgentRunRepository
 from app.services.scheduler_service import scheduler_service
-from app.models.business_models import Product, Marketplace
 
 router = APIRouter(prefix="/api/agent", tags=["agent"])
 
 
 @router.post("/run")
-def run_agent_now(db: Session = Depends(get_db)):
-    orchestrator = AgentOrchestrator(db, trigger="manual")
+def run_agent_now(client: Client = Depends(get_db)):
+    orchestrator = AgentOrchestrator(client, trigger="manual")
     result = orchestrator.run()
     return result
 
 
 @router.get("/status")
-def get_status(db: Session = Depends(get_db)):
-    repo = AgentRunRepository(db)
+def get_status(client: Client = Depends(get_db)):
+    repo = AgentRunRepository(client)
     latest = repo.latest()
+    mkt_res = client.table("marketplaces").select("id").execute()
+    prod_res = client.table("products").select("id").execute()
     return {
         "active": scheduler_service.is_active(),
         "last_run": {
@@ -30,14 +31,14 @@ def get_status(db: Session = Depends(get_db)):
         } if latest else None,
         "next_run_time": str(scheduler_service.next_run_time()) if scheduler_service.next_run_time() else None,
         "kpis_monitored": 8,
-        "marketplaces_monitored": db.query(Marketplace).count(),
-        "products_monitored": db.query(Product).count(),
+        "marketplaces_monitored": len(mkt_res.data or []),
+        "products_monitored": len(prod_res.data or []),
     }
 
 
 @router.get("/runs")
-def list_runs(limit: int = 50, db: Session = Depends(get_db)):
-    repo = AgentRunRepository(db)
+def list_runs(limit: int = 50, client: Client = Depends(get_db)):
+    repo = AgentRunRepository(client)
     runs = repo.list(limit=limit)
     return {"runs": [
         {
@@ -50,8 +51,8 @@ def list_runs(limit: int = 50, db: Session = Depends(get_db)):
 
 
 @router.get("/runs/{run_id}")
-def get_run_detail(run_id: int, db: Session = Depends(get_db)):
-    repo = AgentRunRepository(db)
+def get_run_detail(run_id: int, client: Client = Depends(get_db)):
+    repo = AgentRunRepository(client)
     run = repo.get(run_id)
     if not run:
         raise HTTPException(404, "Agent run not found")
@@ -67,6 +68,6 @@ def get_run_detail(run_id: int, db: Session = Depends(get_db)):
                 "completed_at": str(s.completed_at) if s.completed_at else None,
                 "status": s.status, "duration_ms": s.duration_ms,
                 "output_summary": s.output_summary, "metadata": s.step_metadata,
-            } for s in run.steps
+            } for s in (run.steps or [])
         ],
     }

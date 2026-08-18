@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from supabase import Client
 from pydantic import BaseModel
 from typing import Optional
 from app.database.session import get_db
@@ -16,23 +16,22 @@ KPI_LABELS = {
 }
 
 STATUS_THRESHOLDS = {
-    # kpi -> (warning_pct, critical_pct) deviation magnitude, direction-aware in code below
     "revenue": (5, 10), "orders": (5, 12), "avg_order_value": (8, 15),
     "conversion_rate": (8, 15), "return_rate": (20, 35),
 }
 
 
 @router.get("/kpis")
-def get_monitored_kpis(db: Session = Depends(get_db)):
-    engine = AnalyticsEngine(db)
-    rules = {r.kpi_name: r for r in MonitoringRuleRepository(db).list()}
+def get_monitored_kpis(client: Client = Depends(get_db)):
+    engine = AnalyticsEngine(client)
+    rules = {r.kpi_name: r for r in MonitoringRuleRepository(client).list()}
+    batch_kpis = engine.get_all_kpis_with_growth(days=30)
     results = []
-    for key in ["revenue", "orders", "avg_order_value", "conversion_rate", "return_rate"]:
-        kpi = engine._kpi_with_growth(key, days=30)
+
+    for key, kpi in batch_kpis.items():
         rule = rules.get(key)
         growth = kpi["growth_pct"]
         warn, crit = STATUS_THRESHOLDS.get(key, (10, 20))
-        # for return_rate, "worse" is positive growth; for the rest, "worse" is negative
         worse_direction = growth if key == "return_rate" else -growth
         status = "Healthy"
         if worse_direction >= crit:
@@ -47,7 +46,7 @@ def get_monitored_kpis(db: Session = Depends(get_db)):
             "severity_if_breached": rule.severity if rule else None,
         })
 
-    # Inventory days + sales velocity + revenue at risk (aggregate, business-wide)
+    # Inventory days + sales velocity + revenue at risk
     rows = engine.get_product_table(days=30)
     at_risk = [r for r in rows if r["days_of_stock"] is not None and r["days_of_stock"] < 14]
     total_revenue_at_risk = sum(r["revenue_at_risk"] for r in at_risk)
@@ -74,8 +73,8 @@ def get_monitored_kpis(db: Session = Depends(get_db)):
 
 
 @router.get("/rules")
-def list_rules(db: Session = Depends(get_db)):
-    rules = MonitoringRuleRepository(db).list()
+def list_rules(client: Client = Depends(get_db)):
+    rules = MonitoringRuleRepository(client).list()
     return {"rules": [
         {
             "id": r.id, "kpi_name": r.kpi_name, "enabled": r.enabled, "threshold_type": r.threshold_type,
@@ -101,18 +100,16 @@ class RuleUpdate(BaseModel):
 
 
 @router.post("/rules")
-def create_rule(body: RuleCreate, db: Session = Depends(get_db)):
-    repo = MonitoringRuleRepository(db)
+def create_rule(body: RuleCreate, client: Client = Depends(get_db)):
+    repo = MonitoringRuleRepository(client)
     rule = repo.create(**body.dict())
-    db.commit()
     return {"id": rule.id, "kpi_name": rule.kpi_name}
 
 
 @router.patch("/rules/{rule_id}")
-def update_rule(rule_id: int, body: RuleUpdate, db: Session = Depends(get_db)):
-    repo = MonitoringRuleRepository(db)
+def update_rule(rule_id: int, body: RuleUpdate, client: Client = Depends(get_db)):
+    repo = MonitoringRuleRepository(client)
     rule = repo.update(rule_id, **body.dict())
     if not rule:
         raise HTTPException(404, "Monitoring rule not found")
-    db.commit()
     return {"id": rule.id, "enabled": rule.enabled, "threshold_value": rule.threshold_value}

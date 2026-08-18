@@ -1,11 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from supabase import Client
 from pydantic import BaseModel
 from typing import Optional
 from app.database.session import get_db
 from app.repositories.alert_repository import AlertRepository
 from app.services.alert_service import AlertService
-from app.models.business_models import Marketplace
 from app.analytics.analytics_engine import AnalyticsEngine
 
 router = APIRouter(prefix="/api/alerts", tags=["alerts"])
@@ -30,30 +29,30 @@ def _serialize(a) -> dict:
 @router.get("")
 def list_alerts(severity: Optional[str] = None, kpi_name: Optional[str] = None,
                  marketplace: Optional[str] = None, status: Optional[str] = None,
-                 db: Session = Depends(get_db)):
-    repo = AlertRepository(db)
+                 client: Client = Depends(get_db)):
+    repo = AlertRepository(client)
     marketplace_id = None
     if marketplace:
-        mkt = db.query(Marketplace).filter(Marketplace.name == marketplace).first()
-        marketplace_id = mkt.id if mkt else -1
+        mkt_res = client.table("marketplaces").select("id").eq("name", marketplace).execute()
+        marketplace_id = mkt_res.data[0]["id"] if mkt_res.data else -1
     alerts = repo.list(severity=severity, kpi_name=kpi_name, marketplace_id=marketplace_id, status=status)
     return {"alerts": [_serialize(a) for a in alerts], "total": len(alerts), "counts_by_severity": repo.counts_by_severity()}
 
 
 @router.get("/{alert_id}")
-def get_alert(alert_id: int, db: Session = Depends(get_db)):
-    repo = AlertRepository(db)
+def get_alert(alert_id: int, client: Client = Depends(get_db)):
+    repo = AlertRepository(client)
     alert = repo.get(alert_id)
     if not alert:
         raise HTTPException(404, "Alert not found")
     result = _serialize(alert)
 
     # Historical chart data (actual vs expected) for the alert's KPI
-    engine = AnalyticsEngine(db)
+    engine = AnalyticsEngine(client)
     marketplace_name = None
     if alert.marketplace_id:
-        mkt = db.query(Marketplace).get(alert.marketplace_id)
-        marketplace_name = mkt.name if mkt else None
+        mkt_res = client.table("marketplaces").select("name").eq("id", alert.marketplace_id).execute()
+        marketplace_name = mkt_res.data[0]["name"] if mkt_res.data else None
     kpi_for_series = "revenue" if alert.kpi_name == "marketplace_revenue" else alert.kpi_name
     if kpi_for_series in ("revenue", "orders", "conversion_rate", "return_rate", "avg_order_value"):
         series = engine.daily_series(kpi_for_series, days=30, marketplace=marketplace_name)
@@ -69,13 +68,12 @@ class StatusUpdate(BaseModel):
 
 
 @router.patch("/{alert_id}")
-def update_alert_status(alert_id: int, body: StatusUpdate, db: Session = Depends(get_db)):
-    service = AlertService(db)
+def update_alert_status(alert_id: int, body: StatusUpdate, client: Client = Depends(get_db)):
+    service = AlertService(client)
     try:
         alert = service.set_status(alert_id, body.status)
     except ValueError as e:
         raise HTTPException(400, str(e))
     if not alert:
         raise HTTPException(404, "Alert not found")
-    db.commit()
     return _serialize(alert)

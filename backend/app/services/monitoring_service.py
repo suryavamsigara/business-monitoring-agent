@@ -3,20 +3,19 @@ MonitoringService: coordinates the Observe and Detect steps. Delegates KPI
 calculation to AnalyticsEngine and anomaly detection to AnomalyDetector -
 it does not contain business-metric or detection logic itself.
 """
-from sqlalchemy.orm import Session
+from supabase import Client
 from app.analytics.analytics_engine import AnalyticsEngine
 from app.analytics.anomaly_detector import AnomalyDetector, DetectedAnomaly
 from app.repositories.monitoring_rule_repository import MonitoringRuleRepository
-from app.models.business_models import Marketplace
 
 
 class MonitoringService:
-    def __init__(self, db: Session, days: int = 30):
-        self.db = db
+    def __init__(self, client: Client, days: int = 30):
+        self.client = client
         self.days = days
-        self.engine = AnalyticsEngine(db)
+        self.engine = AnalyticsEngine(client)
         self.detector = AnomalyDetector()
-        self.rule_repo = MonitoringRuleRepository(db)
+        self.rule_repo = MonitoringRuleRepository(client)
 
     def collect_metrics(self) -> dict:
         """Observe step: snapshot the business KPIs."""
@@ -43,51 +42,76 @@ class MonitoringService:
         # Marketplace revenue
         mkt_rule = rules.get("marketplace_revenue")
         if mkt_rule:
-            for mkt in self.db.query(Marketplace).all():
-                series = self.engine.daily_series("revenue", self.days, marketplace=mkt.name)
+            mkts = self.client.table("marketplaces").select("*").execute().data or []
+            for mkt in mkts:
+                mkt_id = mkt.get("id")
+                mkt_name = mkt.get("name")
+                series = self.engine.daily_series("revenue", self.days, marketplace=mkt_name)
                 a = self.detector.detect_rolling_baseline(
                     "marketplace_revenue", series, mkt_rule.threshold_value,
-                    entity_type="marketplace", entity_id=mkt.id, entity_name=mkt.name, marketplace_id=mkt.id,
+                    entity_type="marketplace", entity_id=mkt_id, entity_name=mkt_name, marketplace_id=mkt_id,
                 )
                 if a:
                     anomalies.append(a)
 
-        # Inventory days per at-risk product (threshold detection)
+        # Product-level inventory and compound checks
+        product_table = self.engine.get_product_table(days=self.days)
         inv_rule = rules.get("inventory_days")
         if inv_rule:
-            rows = self.engine.get_product_table(days=self.days)
-            for r in rows:
-                if r["days_of_stock"] is not None:
+            for r in product_table:
+                if r["days_of_stock"] is not None and r["days_of_stock"] < 14:
                     a = self.detector.detect_threshold(
-                        "inventory_days", actual=r["days_of_stock"], expected=inv_rule.threshold_value, ratio=1.0,
+                        "inventory_days", actual=r["days_of_stock"], expected=14.0, ratio=1.0,
                         entity_type="product", entity_id=r["product_id"], entity_name=r["product"],
                     )
                     if a:
                         anomalies.append(a)
 
         # Compound: conversion issue & inventory-driven risk per product
-        self._detect_compound_product_anomalies(anomalies)
+        self._detect_compound_product_anomalies(anomalies, product_table)
 
         return anomalies
 
-    def _detect_compound_product_anomalies(self, anomalies: list[DetectedAnomaly]):
+    def _detect_compound_product_anomalies(self, anomalies: list[DetectedAnomaly], product_table: list):
         start, end, prev_start, prev_end = self.engine.period(self.days)
         df = self.engine.sales_df(prev_start, end)
         if df.empty:
             return
-        for pid, sub in df.groupby("product_id"):
-            curr = sub[(sub["date"] >= start) & (sub["date"] <= end)]
-            prev = sub[(sub["date"] >= prev_start) & (sub["date"] <= prev_end)]
-            if curr.empty or prev.empty or prev["visits"].sum() == 0 or prev["revenue"].sum() == 0:
+
+        dos_map = {r["product_id"]: r["days_of_stock"] for r in product_table}
+
+        curr_df = df[(df["date"] >= start) & (df["date"] <= end)]
+        prev_df = df[(df["date"] >= prev_start) & (df["date"] <= prev_end)]
+
+        curr_agg = curr_df.groupby("product_id").agg(
+            visits=("visits", "sum"), orders=("orders", "sum"), revenue=("revenue", "sum"),
+            product_name=("product_name", "first")
+        )
+        prev_agg = prev_df.groupby("product_id").agg(
+            visits=("visits", "sum"), orders=("orders", "sum"), revenue=("revenue", "sum"),
+        )
+
+        merged = curr_agg.join(prev_agg, lsuffix="_curr", rsuffix="_prev", how="inner")
+
+        for pid, row in merged.iterrows():
+            prev_v = float(row["visits_prev"])
+            curr_v = float(row["visits_curr"])
+            prev_o = float(row["orders_prev"])
+            curr_o = float(row["orders_curr"])
+            prev_r = float(row["revenue_prev"])
+            curr_r = float(row["revenue_curr"])
+
+            if prev_v == 0 or prev_r == 0:
                 continue
-            traffic_change = (curr["visits"].sum() - prev["visits"].sum()) / prev["visits"].sum() * 100
-            revenue_change = (curr["revenue"].sum() - prev["revenue"].sum()) / prev["revenue"].sum() * 100
-            orders_change_denominator = prev["orders"].sum()
-            orders_change = ((curr["orders"].sum() - prev["orders"].sum()) / orders_change_denominator * 100) if orders_change_denominator else 0
-            prev_conv = prev["orders"].sum() / prev["visits"].sum()
-            curr_conv = curr["orders"].sum() / curr["visits"].sum() if curr["visits"].sum() else 0
+
+            traffic_change = (curr_v - prev_v) / prev_v * 100
+            revenue_change = (curr_r - prev_r) / prev_r * 100
+            orders_change = ((curr_o - prev_o) / prev_o * 100) if prev_o else 0
+
+            prev_conv = (prev_o / prev_v * 100)
+            curr_conv = (curr_o / curr_v * 100) if curr_v else 0
             conv_change = (curr_conv - prev_conv) / prev_conv * 100 if prev_conv else 0
-            name = sub["product_name"].iloc[0]
+            name = str(row["product_name"])
 
             a1 = self.detector.detect_compound_conversion_issue(
                 traffic_change, conv_change, orders_change,
@@ -96,7 +120,7 @@ class MonitoringService:
             if a1:
                 anomalies.append(a1)
 
-            dos = self.engine.get_inventory_days(int(pid), self.days)
+            dos = dos_map.get(int(pid))
             a2 = self.detector.detect_compound_inventory_risk(
                 revenue_change, traffic_change, dos,
                 entity_type="product", entity_id=int(pid), entity_name=name,

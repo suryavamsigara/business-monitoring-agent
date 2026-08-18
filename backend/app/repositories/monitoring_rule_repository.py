@@ -1,5 +1,5 @@
-from sqlalchemy.orm import Session
-from app.models.agent_models import MonitoringRule
+from supabase import Client
+from app.utils.record import RowRecord
 
 DEFAULT_RULES = [
     {"kpi_name": "revenue", "threshold_type": "rolling_baseline", "threshold_value": 0.10, "severity": "High", "cooldown_minutes": 120},
@@ -14,40 +14,37 @@ DEFAULT_RULES = [
 
 
 class MonitoringRuleRepository:
-    def __init__(self, db: Session):
-        self.db = db
+    def __init__(self, client: Client):
+        self.client = client
 
-    def list(self, enabled_only: bool = False) -> list[MonitoringRule]:
-        q = self.db.query(MonitoringRule)
+    def list(self, enabled_only: bool = False) -> list[RowRecord]:
+        q = self.client.table("monitoring_rules").select("*")
         if enabled_only:
-            q = q.filter(MonitoringRule.enabled == True)  # noqa: E712
-        return q.all()
+            q = q.eq("enabled", True)
+        res = q.execute()
+        return [RowRecord(r) for r in (res.data or [])]
 
-    def get(self, rule_id: int) -> MonitoringRule | None:
-        return self.db.query(MonitoringRule).get(rule_id)
+    def get(self, rule_id: int) -> RowRecord | None:
+        res = self.client.table("monitoring_rules").select("*").eq("id", rule_id).execute()
+        return RowRecord(res.data[0]) if res.data else None
 
-    def get_by_kpi(self, kpi_name: str) -> MonitoringRule | None:
-        return self.db.query(MonitoringRule).filter(MonitoringRule.kpi_name == kpi_name).first()
+    def get_by_kpi(self, kpi_name: str) -> RowRecord | None:
+        res = self.client.table("monitoring_rules").select("*").eq("kpi_name", kpi_name).execute()
+        return RowRecord(res.data[0]) if res.data else None
 
-    def create(self, **kwargs) -> MonitoringRule:
-        rule = MonitoringRule(**kwargs)
-        self.db.add(rule)
-        self.db.flush()
-        return rule
+    def create(self, **kwargs) -> RowRecord:
+        res = self.client.table("monitoring_rules").insert(kwargs).execute()
+        return RowRecord(res.data[0]) if res.data else RowRecord(kwargs)
 
-    def update(self, rule_id: int, **fields) -> MonitoringRule | None:
-        rule = self.get(rule_id)
-        if not rule:
-            return None
-        for k, v in fields.items():
-            if v is not None:
-                setattr(rule, k, v)
-        self.db.flush()
-        return rule
+    def update(self, rule_id: int, **fields) -> RowRecord | None:
+        clean_fields = {k: v for k, v in fields.items() if v is not None}
+        if not clean_fields:
+            return self.get(rule_id)
+        res = self.client.table("monitoring_rules").update(clean_fields).eq("id", rule_id).execute()
+        return RowRecord(res.data[0]) if res.data else None
 
     def ensure_defaults(self):
-        if self.db.query(MonitoringRule).count() > 0:
+        res = self.client.table("monitoring_rules").select("id").limit(1).execute()
+        if res.data and len(res.data) > 0:
             return
-        for r in DEFAULT_RULES:
-            self.db.add(MonitoringRule(**r))
-        self.db.commit()
+        self.client.table("monitoring_rules").insert(DEFAULT_RULES).execute()

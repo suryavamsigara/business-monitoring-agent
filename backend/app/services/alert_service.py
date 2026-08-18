@@ -1,10 +1,10 @@
 """
 AlertService: creates/updates alerts from investigated anomalies, handling
 deduplication and cooldown-based re-notification, and manages the alert
-lifecycle (Acknowledge/Resolve/Dismiss).
+lifecycle (Acknowledge/Resolve/Dismiss) using Supabase.
 """
 from datetime import datetime, timedelta
-from sqlalchemy.orm import Session
+from supabase import Client
 from app.repositories.alert_repository import AlertRepository
 from app.repositories.anomaly_repository import AnomalyRepository
 from app.analytics.anomaly_detector import DetectedAnomaly
@@ -17,10 +17,10 @@ SEVERITY_RANK = {"Low": 0, "Medium": 1, "High": 2, "Critical": 3}
 
 
 class AlertService:
-    def __init__(self, db: Session, notifier: NotificationService = None):
-        self.db = db
-        self.alerts = AlertRepository(db)
-        self.anomalies = AnomalyRepository(db)
+    def __init__(self, client: Client, notifier: NotificationService = None):
+        self.client = client
+        self.alerts = AlertRepository(client)
+        self.anomalies = AnomalyRepository(client)
         self.scorer = SeverityScorer()
         self.notifier = notifier or InAppNotificationService()
 
@@ -55,8 +55,17 @@ class AlertService:
         recommendations = [{"action": r, "priority": final_severity} for r in investigation.recommendations]
 
         if existing:
-            cooldown_elapsed = datetime.utcnow() - (existing.last_detected_at or existing.created_at) > timedelta(minutes=settings.ALERT_COOLDOWN_MINUTES)
-            severity_worsened = SEVERITY_RANK.get(final_severity, 0) > SEVERITY_RANK.get(existing.severity, 0)
+            last_ts = getattr(existing, "last_detected_at", None) or getattr(existing, "created_at", None)
+            if isinstance(last_ts, str):
+                try:
+                    last_ts = datetime.fromisoformat(last_ts.replace("Z", ""))
+                except Exception:
+                    last_ts = datetime.utcnow() - timedelta(days=1)
+            elif not last_ts:
+                last_ts = datetime.utcnow() - timedelta(days=1)
+
+            cooldown_elapsed = datetime.utcnow() - last_ts > timedelta(minutes=settings.ALERT_COOLDOWN_MINUTES)
+            severity_worsened = SEVERITY_RANK.get(final_severity, 0) > SEVERITY_RANK.get(getattr(existing, "severity", "Low"), 0)
 
             updated = self.alerts.touch(
                 existing, anomaly_id=anomaly_record.id, run_id=run_id, severity=final_severity,
@@ -76,7 +85,7 @@ class AlertService:
             deviation_pct=anomaly.deviation_pct, estimated_impact=investigation.estimated_impact,
             summary=investigation.summary, evidence=evidence, contributors=contributors,
             recommendations=recommendations, confidence=investigation.confidence, ai_mode=ai_mode,
-            status="New", dedup_key=dedup_key, occurrence_count=1, last_detected_at=datetime.utcnow(),
+            status="New", dedup_key=dedup_key, occurrence_count=1,
         )
         self.notifier.notify(alert, is_update=False)
         return alert, True

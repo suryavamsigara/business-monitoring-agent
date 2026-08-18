@@ -1,27 +1,32 @@
+from datetime import date, timedelta
 from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
+from supabase import Client
+from pydantic import BaseModel
 from app.database.session import get_db
 from app.analytics.analytics_engine import AnalyticsEngine
 from app.repositories.alert_repository import AlertRepository
 from app.repositories.agent_run_repository import AgentRunRepository
-from app.models.business_models import Product, Marketplace
+from app.agent.orchestrator import AgentOrchestrator
 
 router = APIRouter(prefix="/api/pulse", tags=["dashboard"])
 
 
 @router.get("/summary")
-def get_pulse_summary(db: Session = Depends(get_db)):
-    engine = AnalyticsEngine(db)
-    alert_repo = AlertRepository(db)
-    run_repo = AgentRunRepository(db)
+def get_pulse_summary(client: Client = Depends(get_db)):
+    engine = AnalyticsEngine(client)
+    alert_repo = AlertRepository(client)
+    run_repo = AgentRunRepository(client)
 
     latest_run = run_repo.latest()
     recent_alerts = alert_repo.list(limit=6)
 
+    mkt_res = client.table("marketplaces").select("id").execute()
+    prod_res = client.table("products").select("id").execute()
+
     return {
         "business_summary": engine.get_business_summary(days=30),
-        "marketplaces_monitored": db.query(Marketplace).count(),
-        "products_monitored": db.query(Product).count(),
+        "marketplaces_monitored": len(mkt_res.data or []),
+        "products_monitored": len(prod_res.data or []),
         "alert_counts": alert_repo.counts_by_severity(),
         "recent_alerts": [
             {
@@ -39,16 +44,10 @@ def get_pulse_summary(db: Session = Depends(get_db)):
 
 
 @router.get("/trends")
-def get_pulse_trends(days: int = 30, db: Session = Depends(get_db)):
-    engine = AnalyticsEngine(db)
+def get_pulse_trends(days: int = 30, client: Client = Depends(get_db)):
+    engine = AnalyticsEngine(client)
     series = engine.daily_series("revenue", days=days)
     return {"trend": [{"date": str(d), "revenue": round(float(v), 2)} for d, v in series.items()]}
-
-
-from pydantic import BaseModel
-from app.models.business_models import SalesDaily, Inventory
-from app.agent.orchestrator import AgentOrchestrator
-from datetime import date, timedelta
 
 
 class SimulateRequest(BaseModel):
@@ -56,70 +55,50 @@ class SimulateRequest(BaseModel):
 
 
 @router.post("/simulate-scenario")
-def simulate_scenario(req: SimulateRequest, db: Session = Depends(get_db)):
+def simulate_scenario(req: SimulateRequest, client: Client = Depends(get_db)):
     """Demo Controls: modify synthetic data for controlled demo story and trigger agent."""
     scenario = req.scenario_type.lower()
     today = date(2026, 8, 18)
-    recent_date = today - timedelta(days=2)
+    recent_date = (today - timedelta(days=2)).isoformat()
 
     if scenario in ("revenue_drop", "amazon_revenue_drop"):
-        mkt = db.query(Marketplace).filter(Marketplace.name == "Amazon").first()
-        if mkt:
-            db.query(SalesDaily).filter(
-                SalesDaily.marketplace_id == mkt.id,
-                SalesDaily.date >= recent_date
-            ).update({
-                SalesDaily.revenue: SalesDaily.revenue * 0.45,
-                SalesDaily.orders: SalesDaily.orders * 0.5,
-                SalesDaily.units_sold: SalesDaily.units_sold * 0.5
-            }, synchronize_session=False)
+        mkt_res = client.table("marketplaces").select("id").eq("name", "Amazon").execute()
+        if mkt_res.data:
+            mkt_id = mkt_res.data[0]["id"]
+            client.table("sales_daily").update({
+                "revenue": 12000.0,
+                "orders": 12,
+                "units_sold": 15
+            }).eq("marketplace_id", mkt_id).gte("date", recent_date).execute()
 
     elif scenario in ("conversion_drop", "conversion_decline"):
-        prod = db.query(Product).filter(Product.name.like("%EcoRunner%")).first()
-        if prod:
-            db.query(SalesDaily).filter(
-                SalesDaily.product_id == prod.id,
-                SalesDaily.date >= recent_date
-            ).update({
-                SalesDaily.orders: SalesDaily.orders * 0.25,
-                SalesDaily.revenue: SalesDaily.revenue * 0.25
-            }, synchronize_session=False)
+        prod_res = client.table("products").select("id").ilike("name", "%EcoRunner%").execute()
+        if prod_res.data:
+            pid = prod_res.data[0]["id"]
+            client.table("sales_daily").update({
+                "orders": 2,
+                "revenue": 2400.0
+            }).eq("product_id", pid).gte("date", recent_date).execute()
 
     elif scenario in ("stockout_risk", "stock_out"):
-        prod = db.query(Product).filter(Product.name.like("%Runner Pro%")).first()
-        if prod:
-            db.query(Inventory).filter(
-                Inventory.product_id == prod.id,
-                Inventory.date >= recent_date
-            ).update({
-                Inventory.stock: 8,
-                Inventory.incoming_stock: 0
-            }, synchronize_session=False)
+        prod_res = client.table("products").select("id").ilike("name", "%Runner Pro%").execute()
+        if prod_res.data:
+            pid = prod_res.data[0]["id"]
+            client.table("inventory").update({
+                "stock": 5,
+                "incoming_stock": 0
+            }).eq("product_id", pid).gte("date", recent_date).execute()
 
     elif scenario in ("return_spike", "returns"):
-        prod = db.query(Product).filter(Product.name.like("%Heritage Loafer%")).first()
-        if prod:
-            db.query(SalesDaily).filter(
-                SalesDaily.product_id == prod.id,
-                SalesDaily.date >= recent_date
-            ).update({
-                SalesDaily.returns: SalesDaily.units_sold * 0.45
-            }, synchronize_session=False)
-
-    elif scenario in ("excess_inventory", "overstock"):
-        prod = db.query(Product).filter(Product.name.like("%CoastalWalk%")).first()
-        if prod:
-            db.query(Inventory).filter(
-                Inventory.product_id == prod.id,
-                Inventory.date >= recent_date
-            ).update({
-                Inventory.stock: 2800
-            }, synchronize_session=False)
-
-    db.commit()
+        prod_res = client.table("products").select("id").ilike("name", "%Heritage Loafer%").execute()
+        if prod_res.data:
+            pid = prod_res.data[0]["id"]
+            client.table("sales_daily").update({
+                "returns": 25
+            }).eq("product_id", pid).gte("date", recent_date).execute()
 
     # Trigger orchestrator run
-    orchestrator = AgentOrchestrator(db, trigger=f"demo_sim_{scenario}")
+    orchestrator = AgentOrchestrator(client, trigger=f"demo_sim_{scenario}")
     run_res = orchestrator.run()
 
     return {

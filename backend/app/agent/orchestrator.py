@@ -1,13 +1,9 @@
 """
-AgentOrchestrator: the custom-built (no LangGraph/CrewAI/AutoGen) workflow
-controller implementing OBSERVE -> DETECT -> INVESTIGATE -> REASON ->
-PRIORITIZE -> ALERT.
-
-The orchestrator controls the workflow and persists an auditable run/step
-trail; all actual business logic lives in the injected service classes.
+AgentOrchestrator: workflow controller implementing OBSERVE -> DETECT ->
+INVESTIGATE -> REASON -> PRIORITIZE -> ALERT using Supabase.
 """
 import logging
-from sqlalchemy.orm import Session
+from supabase import Client
 from app.agent.state import AgentState
 from app.services.monitoring_service import MonitoringService
 from app.services.investigation_service import InvestigationService
@@ -18,28 +14,25 @@ from app.analytics.anomaly_detector import DetectedAnomaly
 
 logger = logging.getLogger("business_pulse.orchestrator")
 
-# Anomalies below this severity score are logged but do not warrant AI
-# investigation or a high-priority alert (controls cost/latency).
 MIN_SCORE_FOR_INVESTIGATION = 25.0
 MAX_ANOMALIES_PER_RUN = 6
 
 
 class AgentOrchestrator:
-    def __init__(self, db: Session, trigger: str = "manual"):
-        self.db = db
+    def __init__(self, client: Client, trigger: str = "manual"):
+        self.client = client
         self.trigger = trigger
-        self.run_repo = AgentRunRepository(db)
-        self.monitoring = MonitoringService(db)
-        self.investigator = InvestigationService(db)
-        self.alerts = AlertService(db)
-        self.rule_repo = MonitoringRuleRepository(db)
+        self.run_repo = AgentRunRepository(client)
+        self.monitoring = MonitoringService(client)
+        self.investigator = InvestigationService(client)
+        self.alerts = AlertService(client)
+        self.rule_repo = MonitoringRuleRepository(client)
         self.rule_repo.ensure_defaults()
 
     def run(self) -> dict:
         state = AgentState(trigger=self.trigger)
         run = self.run_repo.create_run(trigger=self.trigger)
         state.run_id = run.id
-        self.db.commit()
 
         try:
             self._observe(state)
@@ -65,12 +58,13 @@ class AgentOrchestrator:
             )
             state.status = "completed"
             state.alerts_created = alerts_created
-            self.db.commit()
         except Exception as e:
             logger.exception("Agent run failed")
-            self.run_repo.complete_run(run, status="Failed", error_message=str(e))
+            try:
+                self.run_repo.complete_run(run, status="Failed", error_message=str(e))
+            except Exception:
+                pass
             state.status = "failed"
-            self.db.commit()
             raise
 
         return {
@@ -97,9 +91,6 @@ class AgentOrchestrator:
         )
 
     def _select_candidates(self, anomalies: list[dict]) -> list[dict]:
-        """Only meaningful anomalies get AI investigation - this keeps cost
-        and latency bounded and avoids calling the LLM for every KPI wobble.
-        Compound anomalies always qualify (they're already multi-signal)."""
         meaningful = [
             a for a in anomalies
             if a["detection_method"] == "compound" or abs(a["deviation_pct"]) >= 8

@@ -1,11 +1,9 @@
 """
-AssistantService: powers the lightweight "Agent Assistant" chat. Unlike
-Part 1's Copilot, this is scoped to the Business Pulse Agent's own alerts,
-anomalies, agent runs, and evidence - it answers questions ABOUT what the
-agent has already detected/investigated, using the same tool architecture.
+AssistantService: powers the lightweight "Agent Assistant" chat scoped to
+the Business Pulse Agent's own alerts, anomalies, agent runs, and evidence.
 """
 import json
-from sqlalchemy.orm import Session
+from supabase import Client
 from app.analytics.analytics_engine import AnalyticsEngine
 from app.agent.tools.tool_registry import build_investigation_registry
 from app.agent.prompts import ASSISTANT_SYSTEM_PROMPT
@@ -15,11 +13,11 @@ from app.repositories.agent_run_repository import AgentRunRepository
 
 
 class AssistantService:
-    def __init__(self, db: Session):
-        self.db = db
-        self.engine = AnalyticsEngine(db)
-        self.alert_repo = AlertRepository(db)
-        self.run_repo = AgentRunRepository(db)
+    def __init__(self, client: Client):
+        self.client = client
+        self.engine = AnalyticsEngine(client)
+        self.alert_repo = AlertRepository(client)
+        self.run_repo = AgentRunRepository(client)
 
     def _build_context(self, alert_id: int = None, run_id: int = None) -> str:
         parts = []
@@ -41,7 +39,7 @@ class AssistantService:
                 parts.append("AGENT RUN:\n" + json.dumps({
                     "id": run.id, "status": run.status, "kpis_checked": run.kpis_checked,
                     "anomalies_detected": run.anomalies_detected, "alerts_created": run.alerts_created,
-                    "steps": [{"step": s.step_name, "status": s.status, "summary": s.output_summary} for s in run.steps],
+                    "steps": [{"step": s.step_name, "status": s.status, "summary": s.output_summary} for s in (run.steps or [])],
                 }, default=str))
         return "\n\n".join(parts)
 
@@ -53,8 +51,8 @@ class AssistantService:
 
         try:
             from openai import OpenAI
-            client = OpenAI(api_key=settings.LLM_API_KEY)
-            registry = build_investigation_registry(self.db, self.engine)
+            client = OpenAI(api_key=settings.LLM_API_KEY, base_url=settings.LLM_BASE_URL, timeout=15.0)
+            registry = build_investigation_registry(self.client, self.engine)
 
             messages = [{"role": "system", "content": ASSISTANT_SYSTEM_PROMPT}]
             if context:
@@ -67,7 +65,7 @@ class AssistantService:
             for _ in range(4):
                 resp = client.chat.completions.create(
                     model=settings.LLM_MODEL, messages=messages, tools=registry.schemas(),
-                    tool_choice="auto", max_tokens=900,
+                    tool_choice="auto", max_tokens=2000,
                 )
                 msg = resp.choices[0].message
                 if msg.tool_calls:

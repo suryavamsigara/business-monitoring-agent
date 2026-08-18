@@ -1,12 +1,11 @@
 """
 SchedulerService: wraps APScheduler to run the monitoring cycle on a fixed
-interval. Kept separate from the orchestrator/business logic so scheduling
-can be swapped out without touching the agent itself.
+interval using the Supabase client.
 """
 import logging
 from apscheduler.schedulers.background import BackgroundScheduler
 from app.config.settings import settings
-from app.database.session import SessionLocal
+from app.database.supabase_client import get_supabase
 from app.agent.orchestrator import AgentOrchestrator
 
 logger = logging.getLogger("business_pulse.scheduler")
@@ -43,15 +42,13 @@ class SchedulerService:
 
     @staticmethod
     def run_monitoring_cycle():
-        db = SessionLocal()
         try:
-            orchestrator = AgentOrchestrator(db, trigger="scheduled")
+            client = get_supabase()
+            orchestrator = AgentOrchestrator(client, trigger="scheduled")
             result = orchestrator.run()
             logger.info("Scheduled monitoring cycle complete: %s", result)
         except Exception:
             logger.exception("Scheduled monitoring cycle failed")
-        finally:
-            db.close()
 
 
 scheduler_service = SchedulerService()

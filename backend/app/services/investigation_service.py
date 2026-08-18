@@ -5,7 +5,7 @@ validates the response against the InvestigationResult schema. Falls back
 to a deterministic, evidence-only investigation if the LLM is unavailable.
 """
 import json
-from sqlalchemy.orm import Session
+from supabase import Client
 from app.analytics.analytics_engine import AnalyticsEngine
 from app.analytics.severity_scorer import SeverityScorer
 from app.analytics.anomaly_detector import DetectedAnomaly
@@ -16,21 +16,21 @@ from app.config.settings import settings
 
 
 class InvestigationService:
-    def __init__(self, db: Session):
-        self.db = db
-        self.engine = AnalyticsEngine(db)
+    def __init__(self, client: Client):
+        self.client = client
+        self.engine = AnalyticsEngine(client)
         self.scorer = SeverityScorer()
 
     def investigate(self, anomaly: DetectedAnomaly) -> tuple[InvestigationResult, list[dict], str]:
         """Returns (InvestigationResult, tool_call_log, mode)."""
-        registry = build_investigation_registry(self.db, self.engine)
+        registry = build_investigation_registry(self.client, self.engine)
 
         if not settings.LLM_API_KEY:
             return self._deterministic_investigation(anomaly, registry), [], "fallback"
 
         try:
             from openai import OpenAI
-            client = OpenAI(api_key=settings.LLM_API_KEY)
+            client = OpenAI(api_key=settings.LLM_API_KEY, base_url=settings.LLM_BASE_URL, timeout=15.0)
 
             question = self._build_prompt(anomaly)
             messages = [

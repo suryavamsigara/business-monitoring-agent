@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from supabase import Client
 from pydantic import BaseModel, Field
 from typing import Optional, List
 from app.database.session import get_db
@@ -23,9 +23,9 @@ class AssistantChatRequest(BaseModel):
 
 
 @router.post("/chat")
-def chat(req: AssistantChatRequest, db: Session = Depends(get_db)):
+def chat(req: AssistantChatRequest, client: Client = Depends(get_db)):
     if not req.message.strip():
         raise HTTPException(400, "Message cannot be empty")
-    service = AssistantService(db)
+    service = AssistantService(client)
     history = [h.dict() for h in req.history] if req.history else []
     return service.chat(req.message, alert_id=req.alert_id, run_id=req.run_id, history=history)
