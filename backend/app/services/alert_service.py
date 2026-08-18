@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from supabase import Client
 from app.repositories.alert_repository import AlertRepository
 from app.repositories.anomaly_repository import AnomalyRepository
+from app.analytics.analytics_engine import AnalyticsEngine
 from app.analytics.anomaly_detector import DetectedAnomaly
 from app.analytics.severity_scorer import SeverityScorer
 from app.agent.state import InvestigationResult
@@ -21,6 +22,7 @@ class AlertService:
         self.client = client
         self.alerts = AlertRepository(client)
         self.anomalies = AnomalyRepository(client)
+        self.engine = AnalyticsEngine(client)
         self.scorer = SeverityScorer()
         self.notifier = notifier or InAppNotificationService()
 
@@ -30,9 +32,14 @@ class AlertService:
 
     def create_or_update(self, anomaly: DetectedAnomaly, investigation: InvestigationResult,
                           ai_mode: str, run_id: int = None):
+        # Calculate financial impact if not provided by LLM
+        impact_val = investigation.estimated_impact
+        if not impact_val and anomaly.entity_type == "product" and anomaly.entity_id:
+            impact_val = self.engine.get_revenue_at_risk(anomaly.entity_id)
+
         severity_result = self.scorer.score(
             deviation_pct=anomaly.deviation_pct,
-            estimated_impact_0_1=min(1.0, (investigation.estimated_impact or 0) / 100000) if investigation.estimated_impact else 0.3,
+            estimated_impact_0_1=min(1.0, (impact_val or 0) / 100000) if impact_val else 0.3,
             confidence_0_1=investigation.confidence,
         )
         llm_rank = SEVERITY_RANK.get(investigation.severity.capitalize(), 1)
@@ -70,9 +77,9 @@ class AlertService:
             updated = self.alerts.touch(
                 existing, anomaly_id=anomaly_record.id, run_id=run_id, severity=final_severity,
                 actual_value=anomaly.actual_value, expected_value=anomaly.expected_value,
-                deviation_pct=anomaly.deviation_pct, summary=investigation.summary,
-                evidence=evidence, contributors=contributors, recommendations=recommendations,
-                confidence=investigation.confidence, ai_mode=ai_mode,
+                deviation_pct=anomaly.deviation_pct, estimated_impact=impact_val,
+                summary=investigation.summary, evidence=evidence, contributors=contributors,
+                recommendations=recommendations, confidence=investigation.confidence, ai_mode=ai_mode,
             )
             if cooldown_elapsed or severity_worsened:
                 self.notifier.notify(updated, is_update=True)
@@ -82,7 +89,7 @@ class AlertService:
             anomaly_id=anomaly_record.id, run_id=run_id, title=title, kpi_name=anomaly.kpi_name,
             entity_type=anomaly.entity_type, entity_name=anomaly.entity_name, marketplace_id=anomaly.marketplace_id,
             severity=final_severity, actual_value=anomaly.actual_value, expected_value=anomaly.expected_value,
-            deviation_pct=anomaly.deviation_pct, estimated_impact=investigation.estimated_impact,
+            deviation_pct=anomaly.deviation_pct, estimated_impact=impact_val,
             summary=investigation.summary, evidence=evidence, contributors=contributors,
             recommendations=recommendations, confidence=investigation.confidence, ai_mode=ai_mode,
             status="New", dedup_key=dedup_key, occurrence_count=1,

@@ -154,14 +154,44 @@ class InvestigationService:
         magnitude_impact = min(1.0, abs(anomaly.deviation_pct) / 25)
         severity_result = self.scorer.score(anomaly.deviation_pct, magnitude_impact, confidence_0_1=0.5)
 
+        recs = []
+        if anomaly.kpi_name == "inventory_days":
+            recs = [
+                f"Expedite urgent purchase order / warehouse transfer for {anomaly.entity_name or 'the affected SKU'}.",
+                f"Pause or reduce sponsored product ads for {anomaly.entity_name or 'the affected SKU'} to prevent wasting ad spend while out of stock.",
+                "Feature in-stock alternative models on marketplace storefront banners to capture demand.",
+            ]
+        elif anomaly.kpi_name == "conversion_rate":
+            recs = [
+                f"Audit product listing, image carousel, and pricing for {anomaly.entity_name or 'the affected SKU'}.",
+                "Check for buy-box suppression or competitor aggressive discounting.",
+                "Verify size variant availability to ensure customer traffic finds in-stock options.",
+            ]
+        elif anomaly.kpi_name == "return_rate":
+            recs = [
+                f"Analyze return reason breakdown (size mismatch vs defective units) for {anomaly.entity_name or 'the affected SKU'}.",
+                "Update sizing chart and fit guidance on marketplace product detail pages.",
+                "Review recent customer feedback and packaging quality with the warehouse team.",
+            ]
+        else:
+            recs = [
+                f"Inspect marketplace channel performance and buy-box share for {anomaly.kpi_name}.",
+                "Review ad spend ROAS and search visibility on Amazon and Myntra.",
+                "Deploy targeted promotions to recover lost sales velocity.",
+            ]
+
+        summary = f"{anomaly.entity_name or anomaly.kpi_name} breached expected threshold ({anomaly.deviation_pct:+.1f}% vs baseline)."
+        if anomaly.kpi_name == "inventory_days":
+            summary = f"Critical stockout risk: '{anomaly.entity_name or 'Product'}' has depleted inventory with active daily sales demand."
+
         return InvestigationResult(
-            summary=f"Deterministic anomaly detected on {anomaly.kpi_name} ({anomaly.deviation_pct:+.1f}% vs expected).",
+            summary=summary,
             key_findings=evidence,
             contributors=contributors,
             evidence=evidence,
-            recommendations=["Review the affected KPI and related products/marketplaces manually."],
+            recommendations=recs,
             estimated_impact=None,
             severity=severity_result.severity.lower(),
-            confidence=0.5,
+            confidence=0.65,
             alert_required=True,
         )

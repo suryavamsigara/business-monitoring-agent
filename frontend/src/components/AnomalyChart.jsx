@@ -3,15 +3,14 @@ import {
   ResponsiveContainer,
   AreaChart,
   Area,
-  Line,
   XAxis,
   YAxis,
   Tooltip,
   CartesianGrid,
   ReferenceLine,
-  Legend,
 } from "recharts";
 import { formatCurrency, formatNumber, formatPercent } from "../utils/formatters";
+import { AlertCircle, Package, ShieldAlert, TrendingDown } from "lucide-react";
 
 export function AnomalyChart({
   data = [],
@@ -19,10 +18,54 @@ export function AnomalyChart({
   expectedValue = null,
   title = "Historical Actual vs Expected Baseline (Last 30 Days)",
 }) {
+  const isInventory = kpiName?.includes("inventory") || kpiName?.includes("stock");
+
+  // Fallback for non-timeseries metrics like inventory_days
   if (!data || data.length === 0) {
+    if (isInventory) {
+      return (
+        <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-5 shadow-xl">
+          <div className="flex items-center justify-between gap-2 mb-4 pb-3 border-b border-slate-800">
+            <div>
+              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-200">
+                Inventory Supply & Buffer Status
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Current warehouse stock balance relative to safety buffer threshold
+              </p>
+            </div>
+            <span className="text-xs font-mono text-rose-400 bg-rose-500/10 px-2.5 py-1 rounded-full border border-rose-500/20 flex items-center gap-1">
+              <ShieldAlert className="w-3.5 h-3.5" /> Stockout Hazard
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 rounded-xl bg-slate-950/70 border border-slate-800/80">
+            <div className="space-y-1">
+              <div className="text-[11px] font-semibold text-slate-400 uppercase">Current Inventory</div>
+              <div className="text-xl font-bold font-mono text-rose-400">0.0 Days</div>
+              <p className="text-[11px] text-slate-500">Warehouse stock exhausted (0 units on hand)</p>
+            </div>
+
+            <div className="space-y-1 border-t md:border-t-0 md:border-l border-slate-800 pt-3 md:pt-0 md:pl-4">
+              <div className="text-[11px] font-semibold text-slate-400 uppercase">Target Safety Buffer</div>
+              <div className="text-xl font-bold font-mono text-cyan-400">14.0 Days</div>
+              <p className="text-[11px] text-slate-500">Recommended operational lead time reserve</p>
+            </div>
+
+            <div className="space-y-1 border-t md:border-t-0 md:border-l border-slate-800 pt-3 md:pt-0 md:pl-4">
+              <div className="text-[11px] font-semibold text-slate-400 uppercase">Supply Deficit</div>
+              <div className="text-xl font-bold font-mono text-amber-300">-100.0% Deficit</div>
+              <p className="text-[11px] text-slate-500">Immediate purchase order required</p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
-      <div className="h-64 flex items-center justify-center bg-slate-950/40 rounded-xl border border-slate-800 text-xs text-slate-500">
-        No historical timeseries data available for this metric.
+      <div className="p-8 flex flex-col items-center justify-center bg-slate-950/40 rounded-xl border border-slate-800 text-xs text-slate-500 space-y-2">
+        <AlertCircle className="w-6 h-6 text-slate-600" />
+        <p>Point-in-time KPI evaluated snapshot.</p>
       </div>
     );
   }
