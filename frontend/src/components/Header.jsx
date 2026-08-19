@@ -2,11 +2,7 @@ import React from "react";
 import { 
   Play, 
   RefreshCw, 
-  Bot, 
-  FlaskConical, 
-  Sparkles, 
-  Clock,
-  ShieldCheck
+  Bot
 } from "lucide-react";
 import { cn } from "../utils/cn";
 
@@ -16,7 +12,6 @@ export function Header({
   onRunNow,
   isRunning = false,
   onOpenAssistant,
-  onOpenDemoControls,
   onRefresh,
 }) {
   return (
@@ -45,15 +40,6 @@ export function Header({
             <RefreshCw className={cn("w-3.5 h-3.5", isRunning ? "animate-spin text-amber-400" : "")} />
           </button>
         )}
-
-        {/* Demo Controls */}
-        <button
-          onClick={onOpenDemoControls}
-          className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-500/10 border border-purple-500/30 hover:border-purple-500/50 text-purple-300 text-xs font-semibold transition-colors"
-        >
-          <FlaskConical className="w-3.5 h-3.5 text-purple-400" />
-          <span>Demo Sandbox</span>
-        </button>
 
         {/* Agent Assistant */}
         <button

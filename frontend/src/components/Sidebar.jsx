@@ -3,15 +3,10 @@ import { NavLink } from "react-router-dom";
 import { 
   Activity, 
   Bell, 
-  LineChart, 
   Terminal, 
   Sliders, 
   Bot, 
-  FlaskConical, 
-  Sparkles, 
-  ShieldCheck,
-  ChevronRight,
-  Database
+  Sparkles
 } from "lucide-react";
 import { cn } from "../utils/cn";
 
@@ -19,7 +14,6 @@ export function Sidebar({
   alertCount = 0, 
   criticalCount = 0, 
   onOpenAssistant, 
-  onOpenDemoControls,
   agentStatus = null 
 }) {
   const navItems = [
@@ -135,20 +129,6 @@ export function Sidebar({
           <Sparkles className="w-3.5 h-3.5 text-amber-400" />
         </button>
 
-        {/* Demo Controls Button */}
-        <button
-          onClick={onOpenDemoControls}
-          className="w-full flex items-center justify-between p-2.5 rounded-xl bg-purple-500/10 border border-purple-500/20 hover:border-purple-500/40 text-purple-300 text-xs font-medium transition-all"
-        >
-          <div className="flex items-center gap-2">
-            <FlaskConical className="w-3.5 h-3.5 text-purple-400" />
-            <span>Demo Scenarios</span>
-          </div>
-          <span className="text-[10px] font-mono bg-purple-500/20 text-purple-200 px-1.5 py-0.2 rounded">
-            Simulator
-          </span>
-        </button>
-
         {/* Live Engine Status Banner */}
         <div className="p-2.5 rounded-lg bg-slate-900/90 border border-slate-800 text-[11px] text-slate-400 font-mono">
           <div className="flex items-center justify-between mb-1">
@@ -156,7 +136,7 @@ export function Sidebar({
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
               Scheduler Active
             </span>
-            <span className="text-[10px] text-slate-400">APScheduler</span>
+            <span className="text-[10px] text-slate-400">Supabase</span>
           </div>
           <div className="text-[10px] text-slate-400 truncate">
             {agentStatus?.last_run

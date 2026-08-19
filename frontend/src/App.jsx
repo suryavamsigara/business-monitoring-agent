@@ -9,7 +9,6 @@ import { Monitoring } from "./pages/Monitoring";
 import { AgentRuns } from "./pages/AgentRuns";
 import { AgentRunDetail } from "./pages/AgentRunDetail";
 import { AgentAssistantModal } from "./components/AgentAssistantModal";
-import { DemoControlsModal } from "./components/DemoControlsModal";
 import { agentApi } from "./api/agentApi";
 import { alertsApi } from "./api/alertsApi";
 import confetti from "canvas-confetti";
@@ -27,7 +26,6 @@ export function App() {
     runId: null,
     alertTitle: null,
   });
-  const [isDemoControlsOpen, setIsDemoControlsOpen] = useState(false);
 
   // Global telemetry refresh
   const fetchGlobalStatus = useCallback(async () => {
@@ -50,7 +48,6 @@ export function App() {
 
   useEffect(() => {
     fetchGlobalStatus();
-    // Auto-poll status every 30 seconds for background scheduler updates
     const interval = setInterval(fetchGlobalStatus, 30000);
     return () => clearInterval(interval);
   }, [fetchGlobalStatus]);
@@ -61,7 +58,6 @@ export function App() {
     setIsAgentRunning(true);
     setRunProgress("Step 1/6: Observing raw sales & inventory telemetry...");
 
-    // Simulated progress steps for visual transparency
     const progressTimer1 = setTimeout(() => {
       setRunProgress("Step 2/6: Running deterministic anomaly detectors & z-scores...");
     }, 1200);
@@ -90,7 +86,6 @@ export function App() {
         `✓ Monitoring Complete: ${res.anomalies_detected || 0} anomalies detected, ${res.alerts_created || 0} alerts generated.`
       );
 
-      // Trigger celebration if anomalies were detected and processed
       confetti({
         particleCount: 50,
         spread: 60,
@@ -118,10 +113,6 @@ export function App() {
     setIsAssistantOpen(true);
   };
 
-  const handleScenarioSimulated = async (res) => {
-    await fetchGlobalStatus();
-  };
-
   return (
     <Router>
       <div className="flex h-screen w-full bg-[#080C14] text-slate-100 overflow-hidden font-sans">
@@ -130,7 +121,6 @@ export function App() {
           alertCount={alertSummary.total}
           criticalCount={alertSummary.critical}
           onOpenAssistant={() => handleOpenAssistant()}
-          onOpenDemoControls={() => setIsDemoControlsOpen(true)}
           agentStatus={agentStatus}
         />
 
@@ -140,7 +130,6 @@ export function App() {
             onRunNow={handleRunAgentNow}
             isRunning={isAgentRunning}
             onOpenAssistant={() => handleOpenAssistant()}
-            onOpenDemoControls={() => setIsDemoControlsOpen(true)}
             onRefresh={fetchGlobalStatus}
           />
 
@@ -151,7 +140,6 @@ export function App() {
                 element={
                   <Dashboard
                     onOpenAssistant={handleOpenAssistant}
-                    onOpenDemoControls={() => setIsDemoControlsOpen(true)}
                     onRunAgentNow={handleRunAgentNow}
                     isAgentRunning={isAgentRunning}
                     runProgress={runProgress}
@@ -197,13 +185,6 @@ export function App() {
           alertId={assistantContext.alertId}
           runId={assistantContext.runId}
           alertTitle={assistantContext.alertTitle}
-        />
-
-        {/* Global Demo Controls Simulator Modal */}
-        <DemoControlsModal
-          isOpen={isDemoControlsOpen}
-          onClose={() => setIsDemoControlsOpen(false)}
-          onScenarioSimulated={handleScenarioSimulated}
         />
       </div>
     </Router>

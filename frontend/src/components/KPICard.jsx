@@ -50,7 +50,7 @@ export function KPICard({ kpi, onClick }) {
       return formatCurrency(value, false);
     }
     if (kpi_name === "conversion_rate" || kpi_name === "return_rate") {
-      return formatPercent(value * 100, false);
+      return formatPercent(value, false);
     }
     if (kpi_name === "inventory_days") {
       return `${value} Products`;
@@ -66,7 +66,7 @@ export function KPICard({ kpi, onClick }) {
     if (kpi_name === "revenue") return `Prev: ${formatCurrency(previous, true)}`;
     if (kpi_name === "avg_order_value") return `Prev: ${formatCurrency(previous, false)}`;
     if (kpi_name === "conversion_rate" || kpi_name === "return_rate") {
-      return `Prev: ${formatPercent(previous * 100, false)}`;
+      return `Prev: ${formatPercent(previous, false)}`;
     }
     return `Prev: ${formatNumber(previous, true)}`;
   };

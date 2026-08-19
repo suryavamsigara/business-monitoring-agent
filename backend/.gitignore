@@ -11,3 +11,4 @@ wheels/
 .env
 
 supabase/seed_data.sql
+uvicorn.log

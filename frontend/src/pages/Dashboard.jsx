@@ -10,24 +10,15 @@ import { AlertCard } from "../components/AlertCard";
 import { AgentTimeline } from "../components/AgentTimeline";
 import { AnomalyChart } from "../components/AnomalyChart";
 import { LoadingState } from "../components/LoadingState";
-import { StatusBadge } from "../components/StatusBadge";
 import { 
   Bell, 
   ArrowRight, 
-  TrendingUp, 
-  Layers, 
   Activity, 
-  ShieldAlert,
-  CheckCircle2,
-  AlertTriangle,
-  Flame,
-  Sparkles
+  CheckCircle2
 } from "lucide-react";
-import confetti from "canvas-confetti";
 
 export function Dashboard({ 
   onOpenAssistant, 
-  onOpenDemoControls, 
   onRunAgentNow, 
   isAgentRunning, 
   runProgress 

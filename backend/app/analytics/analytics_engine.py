@@ -44,14 +44,27 @@ class AnalyticsEngine:
         if cache_key in self._sales_cache:
             return self._sales_cache[cache_key]
 
-        q = self.client.table("sales_daily").select("*")
-        if start:
-            q = q.gte("date", start.isoformat())
-        if end:
-            q = q.lte("date", end.isoformat())
+        all_rows = []
+        page_size = 1000
+        offset = 0
+        while True:
+            q = (
+                self.client.table("sales_daily")
+                .select("date, product_id, marketplace_id, impressions, clicks, visits, orders, units_sold, revenue, returns, ad_spend")
+                .order("date", desc=True)
+            )
+            if start:
+                q = q.gte("date", start.isoformat())
+            if end:
+                q = q.lte("date", end.isoformat())
+            res = q.range(offset, offset + page_size - 1).execute()
+            rows = res.data or []
+            all_rows.extend(rows)
+            if len(rows) < page_size or len(all_rows) >= 30000:
+                break
+            offset += page_size
 
-        res = q.limit(25000).execute()
-        sales = pd.DataFrame(res.data or [])
+        sales = pd.DataFrame(all_rows)
         if sales.empty:
             df = pd.DataFrame(columns=[
                 "date", "product_id", "marketplace_id", "impressions", "clicks", "visits",
