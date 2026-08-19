@@ -28,7 +28,7 @@ export function Sidebar({
       to: "/alerts",
       icon: Bell,
       badge: alertCount > 0 ? alertCount : null,
-      badgeColor: criticalCount > 0 ? "bg-rose-500 text-white animate-pulse" : "bg-amber-500 text-slate-950 font-bold",
+      badgeColor: criticalCount > 0 ? "bg-rose-600 text-white" : "bg-slate-200 text-slate-800",
     },
     {
       label: "KPI Monitor",
@@ -43,28 +43,28 @@ export function Sidebar({
   ];
 
   return (
-    <aside className="w-64 bg-slate-950 border-r border-slate-800 flex flex-col justify-between flex-shrink-0 h-screen sticky top-0">
+    <aside className="w-64 bg-white border-r border-slate-200 flex flex-col justify-between flex-shrink-0 h-screen sticky top-0 shadow-[1px_0_2px_rgba(0,0,0,0.02)]">
       {/* Brand Header */}
       <div>
-        <div className="p-5 border-b border-slate-800/80 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-amber-600 flex items-center justify-center text-slate-950 font-bold shadow-lg shadow-amber-500/20">
-            <Activity className="w-6 h-6 animate-pulse" />
+        <div className="p-5 border-b border-slate-100 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-slate-900 flex items-center justify-center text-white font-bold shadow-sm">
+            <Activity className="w-5 h-5 text-white" />
           </div>
           <div>
-            <div className="font-extrabold text-sm tracking-tight text-white flex items-center gap-1.5">
+            <div className="font-bold text-sm tracking-tight text-slate-900 flex items-center gap-1.5">
               <span>Business Pulse</span>
-              <span className="text-[10px] font-mono font-medium px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+              <span className="text-[10px] font-mono font-medium px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
                 Agent
               </span>
             </div>
-            <div className="text-[11px] text-slate-400 font-mono">
+            <div className="text-[11px] text-slate-500 font-sans">
               Autonomous KPI Watcher
             </div>
           </div>
         </div>
 
         {/* Navigation links */}
-        <nav className="p-3 space-y-1.5 mt-2">
+        <nav className="p-3 space-y-1 mt-2">
           {navItems.map((item) => {
             const Icon = item.icon;
 
@@ -75,10 +75,10 @@ export function Sidebar({
                 end={item.exact}
                 className={({ isActive }) =>
                   cn(
-                    "flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 group",
+                    "flex items-center justify-between px-3.5 py-2.5 rounded-lg text-xs font-medium transition-colors group",
                     isActive
-                      ? "bg-amber-500/15 text-amber-300 border border-amber-500/30 shadow-sm"
-                      : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
+                      ? "bg-slate-900 text-white font-semibold shadow-xs"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/80"
                   )
                 }
               >
@@ -88,7 +88,7 @@ export function Sidebar({
                       <Icon
                         className={cn(
                           "w-4 h-4 transition-colors",
-                          isActive ? "text-amber-400" : "text-slate-400 group-hover:text-slate-200"
+                          isActive ? "text-white" : "text-slate-500 group-hover:text-slate-900"
                         )}
                       />
                       <span>{item.label}</span>
@@ -97,7 +97,7 @@ export function Sidebar({
                     {item.badge && (
                       <span
                         className={cn(
-                          "text-[10px] px-2 py-0.5 rounded-full font-mono font-bold",
+                          "text-[10px] px-2 py-0.5 rounded font-mono font-bold",
                           item.badgeColor
                         )}
                       >
@@ -113,32 +113,32 @@ export function Sidebar({
       </div>
 
       {/* Bottom Tools & Status */}
-      <div className="p-3 space-y-2.5 border-t border-slate-800/80 bg-slate-950/80">
+      <div className="p-3 space-y-2 border-t border-slate-100">
         {/* Agent Assistant Button */}
         <button
           onClick={onOpenAssistant}
-          className="w-full flex items-center justify-between p-3 rounded-xl bg-gradient-to-r from-amber-500/10 to-amber-600/5 border border-amber-500/30 hover:border-amber-500/60 text-amber-300 text-xs font-semibold transition-all shadow-sm group"
+          className="w-full flex items-center justify-between p-3 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-800 text-xs font-medium transition-colors group shadow-xs"
         >
           <div className="flex items-center gap-2.5">
-            <Bot className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
+            <Bot className="w-4 h-4 text-slate-700" />
             <div className="text-left">
-              <div>Agent Assistant</div>
-              <div className="text-[10px] text-slate-400 font-normal">Ask about detections</div>
+              <div className="font-semibold text-slate-900">Agent Assistant</div>
+              <div className="text-[10px] text-slate-500">Ask about detections</div>
             </div>
           </div>
-          <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+          <Sparkles className="w-3.5 h-3.5 text-slate-500" />
         </button>
 
         {/* Live Engine Status Banner */}
-        <div className="p-2.5 rounded-lg bg-slate-900/90 border border-slate-800 text-[11px] text-slate-400 font-mono">
+        <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-[11px] text-slate-600 font-mono">
           <div className="flex items-center justify-between mb-1">
-            <span className="flex items-center gap-1.5 text-emerald-400">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="flex items-center gap-1.5 text-emerald-700 font-medium">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
               Scheduler Active
             </span>
             <span className="text-[10px] text-slate-400">Supabase</span>
           </div>
-          <div className="text-[10px] text-slate-400 truncate">
+          <div className="text-[10px] text-slate-500 truncate">
             {agentStatus?.last_run
               ? `Last checked ${agentStatus.last_run.anomalies_detected} anomalies`
               : "Continuous observation mode"}

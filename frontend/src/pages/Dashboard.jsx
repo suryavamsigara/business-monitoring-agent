@@ -64,7 +64,7 @@ export function Dashboard({
   };
 
   if (isLoading) {
-    return <LoadingState message="Connecting to Business Pulse telemetry engines..." />;
+    return <LoadingState message="Connecting to telemetry engines..." />;
   }
 
   const alertCounts = pulseSummary?.alert_counts || { Critical: 0, High: 0, Medium: 0, Low: 0 };
@@ -84,18 +84,18 @@ export function Dashboard({
       <section className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
-              <Activity className="w-4 h-4 text-amber-400" />
+            <h2 className="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
+              <Activity className="w-4 h-4 text-slate-700" />
               Continuous KPI Health Monitor
             </h2>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="text-xs text-slate-500 mt-0.5">
               Live telemetry evaluated against historical baselines and deterministic thresholds
             </p>
           </div>
 
           <Link
             to="/monitoring"
-            className="text-xs font-semibold text-amber-400 hover:text-amber-300 flex items-center gap-1 transition-colors"
+            className="text-xs font-semibold text-slate-700 hover:text-slate-900 flex items-center gap-1 transition-colors"
           >
             Configure Rules
             <ArrowRight className="w-3.5 h-3.5" />
@@ -114,30 +114,30 @@ export function Dashboard({
       <section className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h2 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
-              <Bell className="w-4 h-4 text-rose-400" />
+            <h2 className="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
+              <Bell className="w-4 h-4 text-rose-600" />
               Proactive Business Alerts
             </h2>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="text-xs text-slate-500 mt-0.5">
               Autonomous alerts generated from multi-signal anomaly investigations
             </p>
           </div>
 
           {/* Severity Counters Bar */}
-          <div className="flex items-center gap-2 bg-slate-950/80 rounded-xl p-1.5 border border-slate-800 text-xs font-mono">
-            <div className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-500/15 text-rose-400 font-bold border border-rose-500/20">
-              <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse" />
+          <div className="flex items-center gap-2 bg-white rounded-xl p-1.5 border border-slate-200 text-xs font-mono shadow-sm">
+            <div className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-50 text-rose-700 font-bold border border-rose-200">
+              <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
               <span>{alertCounts.Critical || 0} Critical</span>
             </div>
-            <div className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-orange-500/15 text-orange-400 font-bold border border-orange-500/20">
+            <div className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-orange-50 text-orange-700 font-bold border border-orange-200">
               <span>{alertCounts.High || 0} High</span>
             </div>
-            <div className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500/15 text-amber-300 font-bold border border-amber-500/20">
+            <div className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-50 text-amber-800 font-bold border border-amber-200">
               <span>{alertCounts.Medium || 0} Medium</span>
             </div>
             <Link
               to="/alerts"
-              className="ml-2 text-xs font-semibold text-slate-400 hover:text-amber-300 px-2 py-1 transition-colors"
+              className="ml-2 text-xs font-semibold text-slate-600 hover:text-slate-900 px-2 py-1 transition-colors"
             >
               View All ({totalActiveAlerts}) →
             </Link>
@@ -146,9 +146,9 @@ export function Dashboard({
 
         {/* Alert Cards Grid */}
         {recentAlerts.length === 0 ? (
-          <div className="p-8 text-center bg-slate-900/40 rounded-2xl border border-slate-800 space-y-2">
-            <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto" />
-            <h4 className="text-sm font-semibold text-slate-200">All Systems Operating Normally</h4>
+          <div className="p-8 text-center bg-white rounded-xl border border-slate-200 space-y-2 shadow-sm">
+            <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
+            <h4 className="text-sm font-semibold text-slate-900">All Systems Operating Normally</h4>
             <p className="text-xs text-slate-500 max-w-sm mx-auto">
               No critical anomalies breached threshold boundaries in the latest monitoring cycle.
             </p>

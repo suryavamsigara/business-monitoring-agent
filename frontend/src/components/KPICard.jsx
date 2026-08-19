@@ -36,7 +36,6 @@ export function KPICard({ kpi, onClick }) {
     growth_pct,
     status = "Healthy",
     threshold_pct,
-    severity_if_breached,
   } = kpi;
 
   const Icon = KPI_ICONS[kpi_name] || Zap;
@@ -72,55 +71,46 @@ export function KPICard({ kpi, onClick }) {
   };
 
   // Determine trend icon and color
-  // Note: for return_rate, positive growth is bad (worse), negative is good.
-  const isPositiveGrowth = growth_pct > 0;
   const isGood = kpi_name === "return_rate" ? growth_pct < 0 : growth_pct > 0;
-
-  const statusBorderClass = {
-    Healthy: "border-slate-800 hover:border-emerald-500/40",
-    Warning: "border-amber-500/30 hover:border-amber-500/60 shadow-[0_0_15px_-5px_rgba(245,158,11,0.2)]",
-    Critical: "border-rose-500/40 hover:border-rose-500/70 shadow-[0_0_20px_-5px_rgba(239,68,68,0.3)]",
-  }[status] || "border-slate-800";
 
   return (
     <div
       onClick={onClick}
       className={cn(
-        "relative rounded-xl bg-gradient-to-b from-slate-900/90 to-slate-950/90 border p-5 transition-all duration-300 group hover:-translate-y-0.5",
-        statusBorderClass,
+        "rounded-xl bg-white border border-slate-200/90 p-5 transition-all duration-200 shadow-sm hover:shadow-md hover:border-slate-300",
         onClick ? "cursor-pointer" : ""
       )}
     >
       {/* Header with Title and Status */}
       <div className="flex items-start justify-between gap-2 mb-3">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-slate-800/80 border border-slate-700/50 flex items-center justify-center text-slate-300 group-hover:text-amber-400 transition-colors">
+          <div className="w-8 h-8 rounded-lg bg-slate-100 border border-slate-200/80 flex items-center justify-center text-slate-700">
             <Icon className="w-4 h-4" />
           </div>
           <div>
-            <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-600">
               {label || kpi_name.replace("_", " ")}
             </h4>
           </div>
         </div>
-        <StatusBadge status={status} size="sm" />
+        <StatusBadge status={status} size="xs" />
       </div>
 
       {/* Main KPI Value */}
       <div className="mt-2 mb-3">
-        <div className="text-2xl font-bold tracking-tight text-white font-mono">
+        <div className="text-2xl font-bold tracking-tight text-slate-900 font-mono">
           {renderFormattedValue()}
         </div>
       </div>
 
       {/* Footer: Trend & Baseline context */}
-      <div className="flex items-center justify-between pt-2.5 border-t border-slate-800/80 text-xs">
+      <div className="flex items-center justify-between pt-2.5 border-t border-slate-100 text-xs">
         {growth_pct !== null && growth_pct !== undefined ? (
           <div className="flex items-center gap-1.5">
             <span
               className={cn(
                 "inline-flex items-center font-medium font-mono text-[11px]",
-                isGood ? "text-emerald-400" : "text-rose-400"
+                isGood ? "text-emerald-600" : "text-rose-600"
               )}
             >
               {growth_pct > 0 ? (
@@ -135,13 +125,13 @@ export function KPICard({ kpi, onClick }) {
             <span className="text-slate-500 text-[11px]">vs 30d baseline</span>
           </div>
         ) : (
-          <span className="text-slate-400 text-[11px]">
+          <span className="text-slate-500 text-[11px]">
             {threshold_pct ? `Threshold: ±${threshold_pct}%` : "Rolling baseline active"}
           </span>
         )}
 
         {renderPreviousValue() && (
-          <span className="text-slate-400 font-mono text-[11px]">
+          <span className="text-slate-500 font-mono text-[11px]">
             {renderPreviousValue()}
           </span>
         )}

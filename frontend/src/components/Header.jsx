@@ -15,14 +15,14 @@ export function Header({
   onRefresh,
 }) {
   return (
-    <header className="h-16 border-b border-slate-800 bg-slate-950/90 backdrop-blur-md px-6 flex items-center justify-between sticky top-0 z-30">
+    <header className="h-16 border-b border-slate-200 bg-white/90 backdrop-blur-md px-6 flex items-center justify-between sticky top-0 z-30 shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
       {/* Title & Subtitle */}
       <div>
-        <h2 className="text-sm sm:text-base font-bold text-white tracking-tight flex items-center gap-2">
+        <h2 className="text-sm sm:text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
           {title}
         </h2>
         {subtitle && (
-          <p className="text-[11px] text-slate-400 hidden sm:block">
+          <p className="text-xs text-slate-500 hidden sm:block">
             {subtitle}
           </p>
         )}
@@ -35,18 +35,18 @@ export function Header({
           <button
             onClick={onRefresh}
             title="Refresh telemetry"
-            className="p-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700 transition-colors"
+            className="p-2 rounded-lg bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors shadow-sm"
           >
-            <RefreshCw className={cn("w-3.5 h-3.5", isRunning ? "animate-spin text-amber-400" : "")} />
+            <RefreshCw className={cn("w-3.5 h-3.5", isRunning ? "animate-spin text-slate-900" : "")} />
           </button>
         )}
 
         {/* Agent Assistant */}
         <button
           onClick={onOpenAssistant}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30 hover:border-amber-500/50 text-amber-300 text-xs font-semibold transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-colors shadow-sm"
         >
-          <Bot className="w-3.5 h-3.5 text-amber-400" />
+          <Bot className="w-3.5 h-3.5 text-slate-700" />
           <span>Ask Agent</span>
         </button>
 
@@ -55,10 +55,10 @@ export function Header({
           onClick={onRunNow}
           disabled={isRunning}
           className={cn(
-            "flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold transition-all shadow-md",
+            "flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold transition-all shadow-sm",
             isRunning
-              ? "bg-amber-500/20 text-amber-300 border border-amber-500/40 cursor-not-allowed"
-              : "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 shadow-amber-500/20 active:scale-95"
+              ? "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed"
+              : "bg-slate-900 hover:bg-slate-800 text-white active:scale-95"
           )}
         >
           {isRunning ? (

@@ -115,7 +115,7 @@ export function App() {
 
   return (
     <Router>
-      <div className="flex h-screen w-full bg-[#080C14] text-slate-100 overflow-hidden font-sans">
+      <div className="flex h-screen w-full bg-[#F8FAFC] text-slate-900 overflow-hidden font-sans">
         {/* Left Sidebar */}
         <Sidebar
           alertCount={alertSummary.total}

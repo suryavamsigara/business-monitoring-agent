@@ -2,20 +2,11 @@ import React, { useState, useEffect } from "react";
 import { monitoringApi } from "../api/monitoringApi";
 import { LoadingState } from "../components/LoadingState";
 import { StatusBadge } from "../components/StatusBadge";
-import { formatPercent, formatNumber, formatCurrency } from "../utils/formatters";
 import { 
   Sliders, 
-  CheckCircle2, 
-  XCircle, 
   Edit2, 
   Save, 
-  X, 
-  ShieldCheck, 
-  AlertTriangle,
-  Clock,
-  Layers,
-  Zap,
-  Activity
+  X 
 } from "lucide-react";
 import { cn } from "../utils/cn";
 
@@ -90,7 +81,6 @@ export function Monitoring() {
     return <LoadingState message="Loading deterministic KPI monitoring configurations..." />;
   }
 
-  // Predefined metadata mapping for clear presentation
   const KPI_CONFIG_METADATA = {
     revenue: {
       category: "Commercial",
@@ -115,7 +105,7 @@ export function Monitoring() {
     return_rate: {
       category: "Customer Behavior",
       method: "Statistical anomaly (Surge above threshold)",
-      baseline: "Product category historical rate",
+      baseline: "Category historical rate",
     },
     marketplace_revenue: {
       category: "Marketplace Channel",
@@ -144,18 +134,18 @@ export function Monitoring() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-extrabold text-white tracking-tight flex items-center gap-2.5">
-            <Sliders className="w-6 h-6 text-amber-400" />
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2.5">
+            <Sliders className="w-6 h-6 text-slate-800" />
             Deterministic KPI Monitoring Rules
           </h1>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-slate-500 mt-1">
             Configure automated monitoring methods, breach thresholds, severity scoring, and alert deduplication cooldowns.
           </p>
         </div>
 
-        <div className="flex items-center gap-3 text-xs font-mono text-slate-400 bg-slate-950 p-2.5 rounded-xl border border-slate-800">
-          <div className="flex items-center gap-1.5 text-emerald-400 font-bold">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+        <div className="flex items-center gap-3 text-xs font-mono text-slate-600 bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm">
+          <div className="flex items-center gap-1.5 text-emerald-700 font-bold">
+            <span className="w-2 h-2 rounded-full bg-emerald-500" />
             <span>{rules.filter((r) => r.enabled).length} Rules Active</span>
           </div>
           <span>•</span>
@@ -164,20 +154,20 @@ export function Monitoring() {
       </div>
 
       {/* Rules Table */}
-      <div className="rounded-xl border border-slate-800 bg-slate-900/60 shadow-xl overflow-hidden">
-        <div className="p-4 bg-slate-950/80 border-b border-slate-800 flex items-center justify-between">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">
+      <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
             Monitored KPI Configuration Matrix
           </h3>
           <span className="text-[11px] text-slate-500 font-mono">
-            Deterministic rule engine (Zero LLM hallucinations in threshold detection)
+            Deterministic rule engine
           </span>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
-              <tr className="border-b border-slate-800 bg-slate-950/50 text-slate-400 uppercase font-semibold text-[11px]">
+              <tr className="border-b border-slate-200 bg-slate-50/50 text-slate-500 uppercase font-semibold text-[11px]">
                 <th className="py-3 px-4">KPI / Category</th>
                 <th className="py-3 px-4">Monitoring</th>
                 <th className="py-3 px-4">Detection Strategy</th>
@@ -188,7 +178,7 @@ export function Monitoring() {
                 <th className="py-3 px-4 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/60 text-slate-200">
+            <tbody className="divide-y divide-slate-100 text-slate-700">
               {rules.map((rule) => {
                 const meta = KPI_CONFIG_METADATA[rule.kpi_name] || {
                   category: "General",
@@ -200,14 +190,14 @@ export function Monitoring() {
                 return (
                   <tr
                     key={rule.id}
-                    className="hover:bg-slate-800/30 transition-colors"
+                    className="hover:bg-slate-50/80 transition-colors"
                   >
                     {/* KPI & Category */}
                     <td className="py-3.5 px-4 whitespace-nowrap">
-                      <div className="font-bold text-slate-100 text-sm">
+                      <div className="font-bold text-slate-900 text-sm">
                         {rule.kpi_name.replace(/_/g, " ").toUpperCase()}
                       </div>
-                      <span className="text-[10px] font-semibold text-amber-400 bg-amber-500/10 px-1.5 py-0.2 rounded">
+                      <span className="text-[10px] font-medium text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
                         {meta.category}
                       </span>
                     </td>
@@ -219,14 +209,14 @@ export function Monitoring() {
                         className={cn(
                           "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-all",
                           rule.enabled
-                            ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
-                            : "bg-slate-800 text-slate-500 border-slate-700"
+                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                            : "bg-slate-100 text-slate-500 border-slate-200"
                         )}
                       >
                         <span
                           className={cn(
                             "w-1.5 h-1.5 rounded-full",
-                            rule.enabled ? "bg-emerald-400 animate-pulse" : "bg-slate-500"
+                            rule.enabled ? "bg-emerald-500" : "bg-slate-400"
                           )}
                         />
                         {rule.enabled ? "ON" : "OFF"}
@@ -234,12 +224,12 @@ export function Monitoring() {
                     </td>
 
                     {/* Detection Method */}
-                    <td className="py-3.5 px-4 text-slate-300 font-mono text-[11px] max-w-[200px]">
+                    <td className="py-3.5 px-4 text-slate-700 font-mono text-[11px] max-w-[200px]">
                       {meta.method}
                     </td>
 
                     {/* Baseline */}
-                    <td className="py-3.5 px-4 text-slate-400 font-mono text-[11px]">
+                    <td className="py-3.5 px-4 text-slate-500 font-mono text-[11px]">
                       {meta.baseline}
                     </td>
 
@@ -253,10 +243,10 @@ export function Monitoring() {
                           onChange={(e) =>
                             setEditForm({ ...editForm, threshold_value: parseFloat(e.target.value) })
                           }
-                          className="w-20 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-center text-white focus:outline-none focus:border-amber-500 font-mono text-xs"
+                          className="w-20 bg-white border border-slate-300 rounded px-2 py-1 text-center text-slate-900 focus:outline-none focus:border-slate-800 font-mono text-xs shadow-sm"
                         />
                       ) : (
-                        <span className="font-bold text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                        <span className="font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
                           ±{(rule.threshold_value * 100).toFixed(0)}%
                         </span>
                       )}
@@ -268,7 +258,7 @@ export function Monitoring() {
                         <select
                           value={editForm.severity}
                           onChange={(e) => setEditForm({ ...editForm, severity: e.target.value })}
-                          className="bg-slate-950 border border-slate-700 text-slate-200 rounded px-2 py-1 text-xs focus:outline-none focus:border-amber-500"
+                          className="bg-white border border-slate-300 text-slate-900 rounded px-2 py-1 text-xs focus:outline-none focus:border-slate-800 shadow-sm"
                         >
                           <option value="Critical">Critical</option>
                           <option value="High">High</option>
@@ -276,12 +266,12 @@ export function Monitoring() {
                           <option value="Low">Low</option>
                         </select>
                       ) : (
-                        <StatusBadge status={rule.severity} size="sm" />
+                        <StatusBadge status={rule.severity} size="xs" />
                       )}
                     </td>
 
                     {/* Cooldown */}
-                    <td className="py-3.5 px-4 text-center font-mono text-slate-400 whitespace-nowrap">
+                    <td className="py-3.5 px-4 text-center font-mono text-slate-500 whitespace-nowrap">
                       {isEditing ? (
                         <input
                           type="number"
@@ -289,7 +279,7 @@ export function Monitoring() {
                           onChange={(e) =>
                             setEditForm({ ...editForm, cooldown_minutes: parseInt(e.target.value) })
                           }
-                          className="w-16 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-center text-white focus:outline-none focus:border-amber-500 font-mono text-xs"
+                          className="w-16 bg-white border border-slate-300 rounded px-2 py-1 text-center text-slate-900 focus:outline-none focus:border-slate-800 font-mono text-xs shadow-sm"
                         />
                       ) : (
                         `${rule.cooldown_minutes} mins`
@@ -302,14 +292,14 @@ export function Monitoring() {
                         <div className="inline-flex items-center gap-1.5">
                           <button
                             onClick={() => handleSaveEdit(rule.id)}
-                            className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 transition-colors"
+                            className="p-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition-colors"
                             title="Save rule"
                           >
                             <Save className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => setEditingRuleId(null)}
-                            className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:bg-slate-700 transition-colors"
+                            className="p-1.5 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
                             title="Cancel"
                           >
                             <X className="w-3.5 h-3.5" />
@@ -318,7 +308,7 @@ export function Monitoring() {
                       ) : (
                         <button
                           onClick={() => handleStartEdit(rule)}
-                          className="p-1.5 rounded-lg bg-slate-800/80 text-slate-400 hover:text-amber-300 hover:bg-slate-800 transition-colors inline-flex items-center gap-1 text-[11px]"
+                          className="p-1.5 rounded-lg bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors inline-flex items-center gap-1 text-[11px] shadow-sm"
                         >
                           <Edit2 className="w-3 h-3" />
                           <span>Configure</span>

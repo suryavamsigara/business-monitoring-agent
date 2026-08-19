@@ -70,7 +70,6 @@ export function AgentAssistantModal({
     setIsLoading(true);
 
     try {
-      // Send chat request with previous history
       const historyForApi = messages
         .filter((m) => m.role === "user" || m.role === "assistant")
         .map((m) => ({ role: m.role, content: m.content }));
@@ -110,22 +109,22 @@ export function AgentAssistantModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-end bg-slate-950/70 backdrop-blur-sm p-2 sm:p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-lg h-[92vh] max-h-[820px] flex flex-col rounded-2xl bg-slate-900 border border-slate-700 shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-end bg-slate-900/40 backdrop-blur-xs p-2 sm:p-4 animate-in fade-in duration-200">
+      <div className="w-full max-w-lg h-[92vh] max-h-[820px] flex flex-col rounded-2xl bg-white border border-slate-200 shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="p-4 border-b border-slate-800 bg-slate-950 flex items-center justify-between">
+        <div className="p-4 border-b border-slate-200 bg-white flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500 to-amber-600 flex items-center justify-center text-slate-950 font-bold shadow-lg shadow-amber-500/20">
-              <Bot className="w-5 h-5" />
+            <div className="w-9 h-9 rounded-xl bg-slate-900 flex items-center justify-center text-white font-bold shadow-sm">
+              <Bot className="w-5 h-5 text-white" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-sm font-bold text-white">Agent Assistant</h3>
-                <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                <h3 className="text-sm font-bold text-slate-900">Agent Assistant</h3>
+                <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
                   Telemetry & Audit Q&A
                 </span>
               </div>
-              <p className="text-[11px] text-slate-400 mt-0.5 truncate max-w-[280px]">
+              <p className="text-[11px] text-slate-500 mt-0.5 truncate max-w-[280px]">
                 {alertTitle ? `Context: ${alertTitle}` : "Interactive Alert & Run Diagnostics"}
               </p>
             </div>
@@ -133,14 +132,14 @@ export function AgentAssistantModal({
 
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors"
+            className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Message Stream */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 text-xs">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 text-xs bg-slate-50/50">
           {messages.map((msg, idx) => {
             const isUser = msg.role === "user";
 
@@ -150,7 +149,7 @@ export function AgentAssistantModal({
                 className={cn("flex gap-3 group", isUser ? "justify-end" : "justify-start")}
               >
                 {!isUser && (
-                  <div className="w-7 h-7 rounded-lg bg-amber-500/20 border border-amber-500/30 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-700 flex items-center justify-center flex-shrink-0 mt-0.5 shadow-xs">
                     <Sparkles className="w-3.5 h-3.5" />
                   </div>
                 )}
@@ -159,18 +158,18 @@ export function AgentAssistantModal({
                   className={cn(
                     "max-w-[88%] rounded-xl p-3.5 space-y-2 leading-relaxed relative",
                     isUser
-                      ? "bg-amber-500 text-slate-950 font-medium rounded-tr-none shadow-md"
-                      : "bg-slate-950/80 border border-slate-800 text-slate-200 rounded-tl-none shadow-sm"
+                      ? "bg-slate-900 text-white font-medium rounded-tr-none shadow-sm"
+                      : "bg-white border border-slate-200/90 text-slate-800 rounded-tl-none shadow-xs"
                   )}
                 >
                   {/* Markdown Renderer for Assistant and User */}
-                  <div className="prose prose-invert prose-xs max-w-none break-words">
+                  <div className={cn("prose prose-xs max-w-none break-words", isUser ? "prose-invert text-white" : "text-slate-800")}>
                     <ReactMarkdown
                       remarkPlugins={[remarkGfm]}
                       components={{
                         p: ({ children }) => <p className="mb-2 last:mb-0 leading-relaxed">{children}</p>,
                         strong: ({ children }) => (
-                          <strong className={isUser ? "font-bold text-slate-950" : "font-bold text-amber-300"}>
+                          <strong className={isUser ? "font-bold text-white" : "font-bold text-slate-950"}>
                             {children}
                           </strong>
                         ),
@@ -179,41 +178,41 @@ export function AgentAssistantModal({
                         li: ({ children }) => <li className="leading-relaxed">{children}</li>,
                         code: ({ inline, className, children, ...props }) => {
                           return inline ? (
-                            <code className="px-1.5 py-0.5 rounded bg-slate-800 text-cyan-300 font-mono text-[11px]" {...props}>
+                            <code className={cn("px-1.5 py-0.5 rounded font-mono text-[11px]", isUser ? "bg-slate-800 text-slate-200" : "bg-slate-100 text-slate-800")} {...props}>
                               {children}
                             </code>
                           ) : (
                             <div className="my-2 rounded-lg bg-slate-900 border border-slate-800 p-2.5 overflow-x-auto">
-                              <pre className="font-mono text-[11px] text-cyan-300 m-0">
+                              <pre className="font-mono text-[11px] text-slate-100 m-0">
                                 <code {...props}>{children}</code>
                               </pre>
                             </div>
                           );
                         },
                         blockquote: ({ children }) => (
-                          <blockquote className="border-l-2 border-amber-500/50 pl-3 my-2 text-slate-400 italic">
+                          <blockquote className="border-l-2 border-slate-300 pl-3 my-2 text-slate-600 italic">
                             {children}
                           </blockquote>
                         ),
                         table: ({ children }) => (
                           <div className="my-2 overflow-x-auto">
-                            <table className="min-w-full text-left border-collapse border border-slate-800 text-[11px]">
+                            <table className="min-w-full text-left border-collapse border border-slate-200 text-[11px]">
                               {children}
                             </table>
                           </div>
                         ),
                         th: ({ children }) => (
-                          <th className="border border-slate-800 bg-slate-900 px-2 py-1 text-slate-300 font-semibold">
+                          <th className="border border-slate-200 bg-slate-100 px-2 py-1 text-slate-800 font-semibold">
                             {children}
                           </th>
                         ),
                         td: ({ children }) => (
-                          <td className="border border-slate-800 px-2 py-1 text-slate-400">
+                          <td className="border border-slate-200 px-2 py-1 text-slate-600">
                             {children}
                           </td>
                         ),
                         a: ({ href, children }) => (
-                          <a href={href} target="_blank" rel="noreferrer" className="text-cyan-400 underline hover:text-cyan-300">
+                          <a href={href} target="_blank" rel="noreferrer" className="text-blue-600 underline hover:text-blue-700">
                             {children}
                           </a>
                         ),
@@ -227,25 +226,25 @@ export function AgentAssistantModal({
                   {!isUser && (
                     <button
                       onClick={() => handleCopy(msg.content, idx)}
-                      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1 rounded bg-slate-850 hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-all"
+                      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 transition-all"
                       title="Copy response"
                     >
-                      {copiedIdx === idx ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                      {copiedIdx === idx ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
                     </button>
                   )}
 
                   {/* If tools were invoked */}
                   {!isUser && msg.tool_calls && msg.tool_calls.length > 0 && (
-                    <div className="mt-2.5 pt-2.5 border-t border-slate-800/80">
-                      <div className="text-[10px] uppercase font-bold text-amber-400/90 flex items-center gap-1 mb-1.5">
-                        <Wrench className="w-3 h-3" />
+                    <div className="mt-2.5 pt-2.5 border-t border-slate-100">
+                      <div className="text-[10px] uppercase font-bold text-slate-500 flex items-center gap-1 mb-1.5">
+                        <Wrench className="w-3 h-3 text-slate-600" />
                         <span>Tools Executed ({msg.tool_calls.length}):</span>
                       </div>
                       <div className="space-y-1">
                         {msg.tool_calls.map((t, tIdx) => (
                           <div
                             key={tIdx}
-                            className="text-[11px] font-mono bg-slate-900 px-2.5 py-1 rounded border border-slate-800 text-cyan-300 truncate"
+                            className="text-[11px] font-mono bg-slate-100 px-2.5 py-1 rounded border border-slate-200 text-slate-700 truncate"
                           >
                             {t.tool}({JSON.stringify(t.args || {})})
                           </div>
@@ -255,14 +254,14 @@ export function AgentAssistantModal({
                   )}
 
                   {!isUser && msg.error && (
-                    <div className="text-[10px] text-amber-400 font-mono italic mt-1">
+                    <div className="text-[10px] text-rose-600 font-mono italic mt-1">
                       {msg.error}
                     </div>
                   )}
                 </div>
 
                 {isUser && (
-                  <div className="w-7 h-7 rounded-lg bg-slate-800 text-slate-300 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <div className="w-7 h-7 rounded-lg bg-slate-200 text-slate-700 flex items-center justify-center flex-shrink-0 mt-0.5">
                     <User className="w-3.5 h-3.5" />
                   </div>
                 )}
@@ -272,13 +271,13 @@ export function AgentAssistantModal({
 
           {isLoading && (
             <div className="flex gap-3 justify-start">
-              <div className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0">
+              <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-700 flex items-center justify-center flex-shrink-0 shadow-xs">
                 <Sparkles className="w-3.5 h-3.5 animate-spin" />
               </div>
-              <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-3 text-slate-400 flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-bounce" />
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-bounce [animation-delay:0.2s]" />
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-bounce [animation-delay:0.4s]" />
+              <div className="bg-white border border-slate-200 rounded-xl p-3 text-slate-600 flex items-center gap-2 shadow-xs">
+                <span className="w-1.5 h-1.5 rounded-full bg-slate-600 animate-bounce" />
+                <span className="w-1.5 h-1.5 rounded-full bg-slate-600 animate-bounce [animation-delay:0.2s]" />
+                <span className="w-1.5 h-1.5 rounded-full bg-slate-600 animate-bounce [animation-delay:0.4s]" />
                 <span className="text-[11px] text-slate-500 font-mono ml-1">Consulting business telemetry...</span>
               </div>
             </div>
@@ -288,9 +287,9 @@ export function AgentAssistantModal({
         </div>
 
         {/* Suggested Quick Question Chips */}
-        <div className="p-3 bg-slate-950/60 border-t border-slate-800/80">
-          <div className="text-[10px] uppercase font-semibold text-slate-500 mb-1.5 flex items-center gap-1">
-            <HelpCircle className="w-3 h-3 text-amber-400" />
+        <div className="p-3 bg-white border-t border-slate-200">
+          <div className="text-[10px] uppercase font-semibold text-slate-400 mb-1.5 flex items-center gap-1">
+            <HelpCircle className="w-3 h-3 text-slate-500" />
             <span>Suggested Inquiries</span>
           </div>
           <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
@@ -299,7 +298,7 @@ export function AgentAssistantModal({
                 key={idx}
                 onClick={() => handleSend(q)}
                 disabled={isLoading}
-                className="whitespace-nowrap text-[11px] bg-slate-800/90 hover:bg-slate-700/90 text-slate-300 hover:text-amber-300 px-2.5 py-1 rounded-full border border-slate-700/50 transition-colors flex-shrink-0"
+                className="whitespace-nowrap text-[11px] bg-slate-50 hover:bg-slate-100 text-slate-700 px-2.5 py-1 rounded-full border border-slate-200 transition-colors flex-shrink-0"
               >
                 {q}
               </button>
@@ -313,7 +312,7 @@ export function AgentAssistantModal({
             e.preventDefault();
             handleSend();
           }}
-          className="p-3 bg-slate-950 border-t border-slate-800 flex items-center gap-2"
+          className="p-3 bg-white border-t border-slate-200 flex items-center gap-2"
         >
           <input
             type="text"
@@ -321,7 +320,7 @@ export function AgentAssistantModal({
             onChange={(e) => setInput(e.target.value)}
             placeholder="Ask agent about this alert, contributors, or recommendations..."
             disabled={isLoading}
-            className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 transition-colors"
+            className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-slate-900 focus:bg-white transition-colors"
           />
           <button
             type="submit"
@@ -329,8 +328,8 @@ export function AgentAssistantModal({
             className={cn(
               "p-2.5 rounded-xl transition-all duration-200",
               input.trim() && !isLoading
-                ? "bg-amber-500 text-slate-950 hover:bg-amber-400 shadow-md shadow-amber-500/20"
-                : "bg-slate-800 text-slate-600 cursor-not-allowed"
+                ? "bg-slate-900 text-white hover:bg-slate-800 shadow-sm"
+                : "bg-slate-100 text-slate-400 cursor-not-allowed"
             )}
           >
             <Send className="w-4 h-4" />

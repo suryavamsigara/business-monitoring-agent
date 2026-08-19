@@ -10,7 +10,7 @@ import {
   ReferenceLine,
 } from "recharts";
 import { formatCurrency, formatNumber, formatPercent } from "../utils/formatters";
-import { AlertCircle, Package, ShieldAlert, TrendingDown } from "lucide-react";
+import { AlertCircle, ShieldAlert } from "lucide-react";
 
 export function AnomalyChart({
   data = [],
@@ -20,41 +20,40 @@ export function AnomalyChart({
 }) {
   const isInventory = kpiName?.includes("inventory") || kpiName?.includes("stock");
 
-  // Fallback for non-timeseries metrics like inventory_days
   if (!data || data.length === 0) {
     if (isInventory) {
       return (
-        <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-5 shadow-xl">
-          <div className="flex items-center justify-between gap-2 mb-4 pb-3 border-b border-slate-800">
+        <div className="rounded-xl border border-slate-200/90 bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between gap-2 mb-4 pb-3 border-b border-slate-100">
             <div>
-              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-200">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900">
                 Inventory Supply & Buffer Status
               </h3>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <p className="text-xs text-slate-500 mt-0.5">
                 Current warehouse stock balance relative to safety buffer threshold
               </p>
             </div>
-            <span className="text-xs font-mono text-rose-400 bg-rose-500/10 px-2.5 py-1 rounded-full border border-rose-500/20 flex items-center gap-1">
+            <span className="text-xs font-mono text-rose-700 bg-rose-50 px-2.5 py-1 rounded-full border border-rose-200 flex items-center gap-1">
               <ShieldAlert className="w-3.5 h-3.5" /> Stockout Hazard
             </span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 rounded-xl bg-slate-950/70 border border-slate-800/80">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 rounded-xl bg-slate-50 border border-slate-200">
             <div className="space-y-1">
-              <div className="text-[11px] font-semibold text-slate-400 uppercase">Current Inventory</div>
-              <div className="text-xl font-bold font-mono text-rose-400">0.0 Days</div>
+              <div className="text-[11px] font-semibold text-slate-500 uppercase">Current Inventory</div>
+              <div className="text-xl font-bold font-mono text-rose-600">0.0 Days</div>
               <p className="text-[11px] text-slate-500">Warehouse stock exhausted (0 units on hand)</p>
             </div>
 
-            <div className="space-y-1 border-t md:border-t-0 md:border-l border-slate-800 pt-3 md:pt-0 md:pl-4">
-              <div className="text-[11px] font-semibold text-slate-400 uppercase">Target Safety Buffer</div>
-              <div className="text-xl font-bold font-mono text-cyan-400">14.0 Days</div>
+            <div className="space-y-1 border-t md:border-t-0 md:border-l border-slate-200 pt-3 md:pt-0 md:pl-4">
+              <div className="text-[11px] font-semibold text-slate-500 uppercase">Target Safety Buffer</div>
+              <div className="text-xl font-bold font-mono text-slate-900">14.0 Days</div>
               <p className="text-[11px] text-slate-500">Recommended operational lead time reserve</p>
             </div>
 
-            <div className="space-y-1 border-t md:border-t-0 md:border-l border-slate-800 pt-3 md:pt-0 md:pl-4">
-              <div className="text-[11px] font-semibold text-slate-400 uppercase">Supply Deficit</div>
-              <div className="text-xl font-bold font-mono text-amber-300">-100.0% Deficit</div>
+            <div className="space-y-1 border-t md:border-t-0 md:border-l border-slate-200 pt-3 md:pt-0 md:pl-4">
+              <div className="text-[11px] font-semibold text-slate-500 uppercase">Supply Deficit</div>
+              <div className="text-xl font-bold font-mono text-amber-700">-100.0% Deficit</div>
               <p className="text-[11px] text-slate-500">Immediate purchase order required</p>
             </div>
           </div>
@@ -63,8 +62,8 @@ export function AnomalyChart({
     }
 
     return (
-      <div className="p-8 flex flex-col items-center justify-center bg-slate-950/40 rounded-xl border border-slate-800 text-xs text-slate-500 space-y-2">
-        <AlertCircle className="w-6 h-6 text-slate-600" />
+      <div className="p-8 flex flex-col items-center justify-center bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-500 space-y-2">
+        <AlertCircle className="w-6 h-6 text-slate-400" />
         <p>Point-in-time KPI evaluated snapshot.</p>
       </div>
     );
@@ -76,7 +75,7 @@ export function AnomalyChart({
       return formatCurrency(val, true);
     }
     if (kpiName?.includes("rate") || kpiName?.includes("conversion")) {
-      return formatPercent(val * 100, false);
+      return formatPercent(val, false);
     }
     return formatNumber(val, true);
   };
@@ -91,27 +90,27 @@ export function AnomalyChart({
       });
 
       return (
-        <div className="bg-slate-900/95 border border-slate-700 p-3 rounded-lg shadow-2xl backdrop-blur-md text-xs">
-          <div className="font-semibold text-slate-300 mb-1.5 border-b border-slate-800 pb-1 font-mono">
+        <div className="bg-white border border-slate-200 p-3 rounded-lg shadow-lg text-xs">
+          <div className="font-semibold text-slate-800 mb-1.5 border-b border-slate-100 pb-1 font-mono">
             {dateStr}
           </div>
           <div className="space-y-1">
             <div className="flex items-center justify-between gap-4">
-              <span className="flex items-center gap-1.5 text-amber-400">
-                <span className="w-2 h-2 rounded-full bg-amber-400" />
+              <span className="flex items-center gap-1.5 text-slate-700">
+                <span className="w-2 h-2 rounded-full bg-slate-900" />
                 Actual:
               </span>
-              <span className="font-mono font-bold text-white">
+              <span className="font-mono font-bold text-slate-900">
                 {formatYValue(actual)}
               </span>
             </div>
             {expectedValue !== null && (
-              <div className="flex items-center justify-between gap-4 text-slate-400">
+              <div className="flex items-center justify-between gap-4 text-slate-500">
                 <span className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-blue-400" />
+                  <span className="w-2 h-2 rounded-full bg-blue-500" />
                   Expected Baseline:
                 </span>
-                <span className="font-mono font-medium">
+                <span className="font-mono font-medium text-slate-700">
                   {formatYValue(expectedValue)}
                 </span>
               </div>
@@ -124,10 +123,10 @@ export function AnomalyChart({
   };
 
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-5 shadow-xl">
+    <div className="rounded-xl border border-slate-200/90 bg-white p-5 shadow-sm">
       <div className="flex items-center justify-between gap-2 mb-4">
         <div>
-          <h3 className="text-sm font-bold uppercase tracking-wider text-slate-200">
+          <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900">
             {title}
           </h3>
           <p className="text-xs text-slate-500 mt-0.5">
@@ -135,13 +134,13 @@ export function AnomalyChart({
           </p>
         </div>
         <div className="flex items-center gap-4 text-xs">
-          <div className="flex items-center gap-1.5 text-amber-400">
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
+          <div className="flex items-center gap-1.5 text-slate-900 font-medium">
+            <span className="w-2.5 h-2.5 rounded-full bg-slate-900" />
             <span>Actual</span>
           </div>
           {expectedValue !== null && (
-            <div className="flex items-center gap-1.5 text-blue-400">
-              <span className="w-2.5 h-0.5 bg-blue-400 border-dashed" />
+            <div className="flex items-center gap-1.5 text-blue-600 font-medium">
+              <span className="w-2.5 h-0.5 bg-blue-600 border-dashed" />
               <span>Expected Baseline</span>
             </div>
           )}
@@ -152,20 +151,20 @@ export function AnomalyChart({
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={data} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
             <defs>
-              <linearGradient id="actualGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.4} />
-                <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.0} />
+              <linearGradient id="actualGradientClean" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#0f172a" stopOpacity={0.12} />
+                <stop offset="95%" stopColor="#0f172a" stopOpacity={0.0} />
               </linearGradient>
             </defs>
 
-            <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
 
             <XAxis
               dataKey="date"
-              stroke="#64748b"
+              stroke="#94a3b8"
               fontSize={11}
               tickLine={false}
-              axisLine={{ stroke: "#334155" }}
+              axisLine={{ stroke: "#e2e8f0" }}
               tickFormatter={(date) => {
                 const d = new Date(date);
                 return `${d.getDate()} ${d.toLocaleString("en-US", { month: "short" })}`;
@@ -173,10 +172,10 @@ export function AnomalyChart({
             />
 
             <YAxis
-              stroke="#64748b"
+              stroke="#94a3b8"
               fontSize={11}
               tickLine={false}
-              axisLine={{ stroke: "#334155" }}
+              axisLine={{ stroke: "#e2e8f0" }}
               tickFormatter={formatYValue}
             />
 
@@ -185,12 +184,12 @@ export function AnomalyChart({
             {expectedValue !== null && (
               <ReferenceLine
                 y={expectedValue}
-                stroke="#38bdf8"
+                stroke="#2563eb"
                 strokeDasharray="4 4"
                 strokeWidth={1.5}
                 label={{
                   value: `Expected: ${formatYValue(expectedValue)}`,
-                  fill: "#38bdf8",
+                  fill: "#2563eb",
                   fontSize: 10,
                   position: "insideTopRight",
                 }}
@@ -200,12 +199,12 @@ export function AnomalyChart({
             <Area
               type="monotone"
               dataKey="actual"
-              stroke="#f59e0b"
-              strokeWidth={2.5}
+              stroke="#0f172a"
+              strokeWidth={2}
               fillOpacity={1}
-              fill="url(#actualGradient)"
+              fill="url(#actualGradientClean)"
               dot={false}
-              activeDot={{ r: 5, fill: "#f59e0b", stroke: "#0f172a", strokeWidth: 2 }}
+              activeDot={{ r: 4, fill: "#0f172a", stroke: "#ffffff", strokeWidth: 2 }}
             />
           </AreaChart>
         </ResponsiveContainer>

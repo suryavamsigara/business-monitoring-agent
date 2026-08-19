@@ -1,25 +1,22 @@
 import React from "react";
-import { RefreshCw, Activity, Search } from "lucide-react";
+import { Activity, Search } from "lucide-react";
 
 export function LoadingState({ message = "Gathering telemetry and running deterministic models..." }) {
   return (
     <div className="flex flex-col items-center justify-center p-12 min-h-[300px] text-center space-y-4">
-      <div className="relative">
-        <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
-          <Activity className="w-6 h-6 animate-pulse" />
-        </div>
-        <div className="absolute -inset-1 rounded-2xl bg-amber-500/20 blur animate-pulse" />
+      <div className="w-12 h-12 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-800 shadow-sm">
+        <Activity className="w-6 h-6 animate-pulse" />
       </div>
 
       <div className="space-y-1">
-        <h4 className="text-sm font-bold text-slate-200">Business Pulse Telemetry</h4>
-        <p className="text-xs text-slate-400 max-w-sm">{message}</p>
+        <h4 className="text-sm font-bold text-slate-900">Business Pulse Telemetry</h4>
+        <p className="text-xs text-slate-500 max-w-sm">{message}</p>
       </div>
 
       {/* Shimmer skeleton bars */}
       <div className="w-48 space-y-2 pt-2">
-        <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
-          <div className="h-full bg-amber-500/50 rounded-full animate-[shimmer_1.5s_infinite] w-2/3" />
+        <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden">
+          <div className="h-full bg-slate-800 rounded-full animate-pulse w-2/3" />
         </div>
       </div>
     </div>
@@ -34,16 +31,16 @@ export function EmptyState({
   onAction = null
 }) {
   return (
-    <div className="p-12 text-center bg-slate-900/40 rounded-2xl border border-slate-800 space-y-3">
-      <div className="w-12 h-12 rounded-full bg-slate-800/80 text-slate-400 flex items-center justify-center mx-auto">
+    <div className="p-12 text-center bg-white rounded-xl border border-slate-200 space-y-3 shadow-sm">
+      <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center mx-auto">
         <Icon className="w-6 h-6" />
       </div>
-      <h4 className="text-sm font-semibold text-slate-200">{title}</h4>
-      <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">{message}</p>
+      <h4 className="text-sm font-semibold text-slate-900">{title}</h4>
+      <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">{message}</p>
       {actionText && onAction && (
         <button
           onClick={onAction}
-          className="mt-2 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 hover:bg-amber-500/20 text-xs font-semibold transition-colors"
+          className="mt-2 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-slate-900 text-white hover:bg-slate-800 text-xs font-semibold transition-colors shadow-sm"
         >
           {actionText}
         </button>

@@ -1,19 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { alertsApi } from "../api/alertsApi";
 import { AlertTable } from "../components/AlertTable";
-import { LoadingState } from "../components/LoadingState";
-import { StatusBadge } from "../components/StatusBadge";
 import { 
   Bell, 
   Filter, 
   Search, 
-  RefreshCw, 
-  SlidersHorizontal, 
-  CheckCircle2, 
-  AlertOctagon, 
-  AlertTriangle,
-  Clock,
-  ShieldCheck
+  RefreshCw 
 } from "lucide-react";
 import { cn } from "../utils/cn";
 
@@ -89,48 +81,48 @@ export function Alerts() {
       {/* Top Header & Metrics Bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-extrabold text-white tracking-tight flex items-center gap-2.5">
-            <Bell className="w-6 h-6 text-rose-400" />
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2.5">
+            <Bell className="w-6 h-6 text-rose-600" />
             Business Alerts & Anomaly Center
           </h1>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-slate-500 mt-1">
             Deterministic anomalies investigated and prioritized by the autonomous agent with deduplication rules.
           </p>
         </div>
 
         {/* Metric Cards Summary */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 bg-slate-950/80 p-2 rounded-xl border border-slate-800 text-xs font-mono">
-          <div className="px-3 py-1.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-center">
-            <div className="text-sm font-bold text-rose-400">{criticalCount}</div>
-            <div className="text-[10px] uppercase font-semibold text-slate-400">Critical</div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 bg-white p-2 rounded-xl border border-slate-200 text-xs font-mono shadow-sm">
+          <div className="px-3 py-1.5 rounded-lg bg-rose-50 border border-rose-200 text-center">
+            <div className="text-sm font-bold text-rose-700">{criticalCount}</div>
+            <div className="text-[10px] uppercase font-semibold text-slate-500">Critical</div>
           </div>
-          <div className="px-3 py-1.5 rounded-lg bg-orange-500/10 border border-orange-500/20 text-center">
-            <div className="text-sm font-bold text-orange-400">{highCount}</div>
-            <div className="text-[10px] uppercase font-semibold text-slate-400">High</div>
+          <div className="px-3 py-1.5 rounded-lg bg-orange-50 border border-orange-200 text-center">
+            <div className="text-sm font-bold text-orange-700">{highCount}</div>
+            <div className="text-[10px] uppercase font-semibold text-slate-500">High</div>
           </div>
-          <div className="px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-center">
-            <div className="text-sm font-bold text-amber-300">{mediumCount}</div>
-            <div className="text-[10px] uppercase font-semibold text-slate-400">Medium</div>
+          <div className="px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-200 text-center">
+            <div className="text-sm font-bold text-amber-800">{mediumCount}</div>
+            <div className="text-[10px] uppercase font-semibold text-slate-500">Medium</div>
           </div>
-          <div className="px-3 py-1.5 rounded-lg bg-blue-500/10 border border-blue-500/20 text-center">
-            <div className="text-sm font-bold text-blue-400">{lowCount}</div>
-            <div className="text-[10px] uppercase font-semibold text-slate-400">Low</div>
+          <div className="px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-center">
+            <div className="text-sm font-bold text-slate-700">{lowCount}</div>
+            <div className="text-[10px] uppercase font-semibold text-slate-500">Low</div>
           </div>
         </div>
       </div>
 
       {/* Filter Toolbar */}
-      <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-3">
+      <div className="p-4 rounded-xl bg-white border border-slate-200 space-y-3 shadow-sm">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           {/* Search bar */}
           <div className="relative flex-1 min-w-[240px]">
-            <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search by title, SKU, marketplace, or summary..."
-              className="w-full bg-slate-950 border border-slate-700/80 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 transition-colors"
+              className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-9 pr-4 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-slate-800 focus:bg-white transition-colors"
             />
           </div>
 
@@ -140,7 +132,7 @@ export function Alerts() {
             <select
               value={selectedSeverity}
               onChange={(e) => setSelectedSeverity(e.target.value)}
-              className="bg-slate-950 border border-slate-700 text-slate-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-amber-500"
+              className="bg-white border border-slate-200 text-slate-700 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-slate-800"
             >
               <option value="all">All Severities</option>
               <option value="Critical">Critical Only</option>
@@ -153,7 +145,7 @@ export function Alerts() {
             <select
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
-              className="bg-slate-950 border border-slate-700 text-slate-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-amber-500"
+              className="bg-white border border-slate-200 text-slate-700 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-slate-800"
             >
               <option value="all">All Statuses</option>
               <option value="New">New</option>
@@ -167,7 +159,7 @@ export function Alerts() {
             <select
               value={selectedMarketplace}
               onChange={(e) => setSelectedMarketplace(e.target.value)}
-              className="bg-slate-950 border border-slate-700 text-slate-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-amber-500"
+              className="bg-white border border-slate-200 text-slate-700 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-slate-800"
             >
               <option value="all">All Channels</option>
               <option value="Amazon">Amazon</option>
@@ -180,17 +172,17 @@ export function Alerts() {
             <button
               onClick={fetchAlerts}
               title="Refresh alerts"
-              className="p-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:text-white transition-colors"
+              className="p-2 rounded-lg bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors shadow-sm"
             >
-              <RefreshCw className={cn("w-4 h-4", isLoading ? "animate-spin text-amber-400" : "")} />
+              <RefreshCw className={cn("w-4 h-4", isLoading ? "animate-spin text-slate-900" : "")} />
             </button>
           </div>
         </div>
 
         {/* Quick Filter Badges */}
-        <div className="flex items-center gap-2 pt-2 border-t border-slate-800/80 text-xs overflow-x-auto">
+        <div className="flex items-center gap-2 pt-2 border-t border-slate-100 text-xs overflow-x-auto">
           <span className="text-slate-500 text-[11px] font-semibold uppercase tracking-wider flex items-center gap-1">
-            <Filter className="w-3 h-3" /> Quick Filter:
+            <Filter className="w-3 h-3" /> Filter:
           </span>
           {["all", "Critical", "High", "New", "Investigating"].map((chip) => (
             <button
@@ -206,10 +198,10 @@ export function Alerts() {
                 }
               }}
               className={cn(
-                "px-2.5 py-0.5 rounded-full text-[11px] font-medium border transition-colors",
+                "px-2.5 py-0.5 rounded-md text-[11px] font-medium border transition-colors",
                 (selectedSeverity === chip || selectedStatus === chip || (chip === "all" && selectedSeverity === "all" && selectedStatus === "all"))
-                  ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
-                  : "bg-slate-950 text-slate-400 border-slate-800 hover:border-slate-700"
+                  ? "bg-slate-900 text-white border-slate-900"
+                  : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
               )}
             >
               {chip === "all" ? "Show All" : chip}
