@@ -25,10 +25,13 @@ STATUS_THRESHOLDS = {
 def get_monitored_kpis(client: Client = Depends(get_db)):
     engine = AnalyticsEngine(client)
     rules = {r.kpi_name: r for r in MonitoringRuleRepository(client).list()}
-    batch_kpis = engine.get_all_kpis_with_growth(days=30)
+    batch_kpis = engine.get_business_summary(days=30)
     results = []
 
-    for key, kpi in batch_kpis.items():
+    for key in ["revenue", "orders", "conversion_rate", "return_rate", "avg_order_value"]:
+        kpi = batch_kpis.get(key)
+        if not kpi:
+            continue
         rule = rules.get(key)
         growth = kpi["growth_pct"]
         warn, crit = STATUS_THRESHOLDS.get(key, (10, 20))

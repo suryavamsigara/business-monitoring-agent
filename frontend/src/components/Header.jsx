@@ -1,7 +1,7 @@
 import React from "react";
-import { 
-  Play, 
-  RefreshCw, 
+import {
+  Play,
+  RefreshCw,
   Bot
 } from "lucide-react";
 import { cn } from "../utils/cn";

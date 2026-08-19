@@ -2,13 +2,13 @@ import React, { useState, useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { assistantApi } from "../api/assistantApi";
-import { 
-  Bot, 
-  Send, 
-  Sparkles, 
-  X, 
-  Wrench, 
-  User, 
+import {
+  Bot,
+  Send,
+  Sparkles,
+  X,
+  Wrench,
+  User,
   HelpCircle,
   Copy,
   Check
@@ -24,12 +24,12 @@ const SUGGESTED_QUESTIONS = [
   "Explain the likely contributors behind this metric drop."
 ];
 
-export function AgentAssistantModal({ 
-  isOpen, 
-  onClose, 
-  alertId = null, 
+export function AgentAssistantModal({
+  isOpen,
+  onClose,
+  alertId = null,
   runId = null,
-  alertTitle = null 
+  alertTitle = null
 }) {
   const [messages, setMessages] = useState([
     {
@@ -148,12 +148,6 @@ export function AgentAssistantModal({
                 key={idx}
                 className={cn("flex gap-3 group", isUser ? "justify-end" : "justify-start")}
               >
-                {!isUser && (
-                  <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-700 flex items-center justify-center flex-shrink-0 mt-0.5 shadow-xs">
-                    <Sparkles className="w-3.5 h-3.5" />
-                  </div>
-                )}
-
                 <div
                   className={cn(
                     "max-w-[88%] rounded-xl p-3.5 space-y-2 leading-relaxed relative",
@@ -271,14 +265,11 @@ export function AgentAssistantModal({
 
           {isLoading && (
             <div className="flex gap-3 justify-start">
-              <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-700 flex items-center justify-center flex-shrink-0 shadow-xs">
-                <Sparkles className="w-3.5 h-3.5 animate-spin" />
-              </div>
               <div className="bg-white border border-slate-200 rounded-xl p-3 text-slate-600 flex items-center gap-2 shadow-xs">
                 <span className="w-1.5 h-1.5 rounded-full bg-slate-600 animate-bounce" />
                 <span className="w-1.5 h-1.5 rounded-full bg-slate-600 animate-bounce [animation-delay:0.2s]" />
                 <span className="w-1.5 h-1.5 rounded-full bg-slate-600 animate-bounce [animation-delay:0.4s]" />
-                <span className="text-[11px] text-slate-500 font-mono ml-1">Consulting business telemetry...</span>
+                <span className="text-[11px] text-slate-500 font-mono ml-1">Pulling up the latest metrics...</span>
               </div>
             </div>
           )}

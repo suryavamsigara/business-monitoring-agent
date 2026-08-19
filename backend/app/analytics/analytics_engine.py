@@ -3,46 +3,79 @@ Deterministic analytics engine using Supabase Client directly:
 revenue, orders, units sold, conversion rate, return rate, AOV, growth %,
 sales velocity, inventory days, revenue at risk, marketplace performance.
 """
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 import pandas as pd
 import numpy as np
 from supabase import Client
 from app.database.supabase_client import get_supabase
 
+# Global in-memory cache to eliminate redundant Supabase network roundtrips
+_GLOBAL_SALES_CACHE = {}
+_GLOBAL_CACHE_EXPIRY = {}
+_GLOBAL_PRODUCTS_DF = None
+_GLOBAL_PRODUCTS_TIMESTAMP = None
+_GLOBAL_MARKETPLACES_DF = None
+_GLOBAL_MARKETPLACES_TIMESTAMP = None
+_GLOBAL_INVENTORY_CACHE = {}
+_GLOBAL_INVENTORY_TIMESTAMP = None
+_GLOBAL_LATEST_DATE = None
+_GLOBAL_LATEST_DATE_TIMESTAMP = None
+
+CACHE_TTL_SECONDS = 180  # 3-minute TTL for fast instantaneous dashboard loading
+
 
 class AnalyticsEngine:
     def __init__(self, client: Client = None):
         self.client = client or get_supabase()
-        self._sales_cache = {}
-        self._inventory_cache = None
-        self._latest_date_cache = None
-        self._products_df = None
-        self._marketplaces_df = None
+
+    @classmethod
+    def clear_cache(cls):
+        global _GLOBAL_SALES_CACHE, _GLOBAL_CACHE_EXPIRY, _GLOBAL_PRODUCTS_DF
+        global _GLOBAL_MARKETPLACES_DF, _GLOBAL_INVENTORY_CACHE, _GLOBAL_LATEST_DATE
+        _GLOBAL_SALES_CACHE.clear()
+        _GLOBAL_CACHE_EXPIRY.clear()
+        _GLOBAL_PRODUCTS_DF = None
+        _GLOBAL_MARKETPLACES_DF = None
+        _GLOBAL_INVENTORY_CACHE.clear()
+        _GLOBAL_LATEST_DATE = None
 
     def _get_products_df(self) -> pd.DataFrame:
-        if self._products_df is not None:
-            return self._products_df
+        global _GLOBAL_PRODUCTS_DF, _GLOBAL_PRODUCTS_TIMESTAMP
+        now = datetime.utcnow()
+        if _GLOBAL_PRODUCTS_DF is not None and _GLOBAL_PRODUCTS_TIMESTAMP and (now - _GLOBAL_PRODUCTS_TIMESTAMP).total_seconds() < CACHE_TTL_SECONDS:
+            return _GLOBAL_PRODUCTS_DF
+
         res = self.client.table("products").select("id, name, category, price, cost, sku").execute()
         df = pd.DataFrame(res.data or [])
         if not df.empty:
             df = df.rename(columns={"id": "product_id", "name": "product_name"})
-        self._products_df = df
+        _GLOBAL_PRODUCTS_DF = df
+        _GLOBAL_PRODUCTS_TIMESTAMP = now
         return df
 
     def _get_marketplaces_df(self) -> pd.DataFrame:
-        if self._marketplaces_df is not None:
-            return self._marketplaces_df
+        global _GLOBAL_MARKETPLACES_DF, _GLOBAL_MARKETPLACES_TIMESTAMP
+        now = datetime.utcnow()
+        if _GLOBAL_MARKETPLACES_DF is not None and _GLOBAL_MARKETPLACES_TIMESTAMP and (now - _GLOBAL_MARKETPLACES_TIMESTAMP).total_seconds() < CACHE_TTL_SECONDS:
+            return _GLOBAL_MARKETPLACES_DF
+
         res = self.client.table("marketplaces").select("id, name").execute()
         df = pd.DataFrame(res.data or [])
         if not df.empty:
             df = df.rename(columns={"id": "marketplace_id", "name": "marketplace_name"})
-        self._marketplaces_df = df
+        _GLOBAL_MARKETPLACES_DF = df
+        _GLOBAL_MARKETPLACES_TIMESTAMP = now
         return df
 
     def sales_df(self, start: date = None, end: date = None) -> pd.DataFrame:
+        global _GLOBAL_SALES_CACHE, _GLOBAL_CACHE_EXPIRY
+        now = datetime.utcnow()
         cache_key = (start, end)
-        if cache_key in self._sales_cache:
-            return self._sales_cache[cache_key]
+
+        if cache_key in _GLOBAL_SALES_CACHE:
+            expiry = _GLOBAL_CACHE_EXPIRY.get(cache_key)
+            if expiry and (now - expiry).total_seconds() < CACHE_TTL_SECONDS:
+                return _GLOBAL_SALES_CACHE[cache_key]
 
         all_rows = []
         page_size = 1000
@@ -71,7 +104,8 @@ class AnalyticsEngine:
                 "orders", "units_sold", "revenue", "returns", "ad_spend",
                 "product_name", "category", "price", "cost", "sku", "marketplace_name",
             ])
-            self._sales_cache[cache_key] = df
+            _GLOBAL_SALES_CACHE[cache_key] = df
+            _GLOBAL_CACHE_EXPIRY[cache_key] = now
             return df
 
         # Convert date string to date objects
@@ -86,12 +120,15 @@ class AnalyticsEngine:
         if not mkts.empty:
             sales = sales.merge(mkts, on="marketplace_id", how="left")
 
-        self._sales_cache[cache_key] = sales
+        _GLOBAL_SALES_CACHE[cache_key] = sales
+        _GLOBAL_CACHE_EXPIRY[cache_key] = now
         return sales
 
     def inventory_df(self, as_of: date = None) -> pd.DataFrame:
-        if self._inventory_cache is not None and as_of is None:
-            return self._inventory_cache
+        global _GLOBAL_INVENTORY_CACHE, _GLOBAL_INVENTORY_TIMESTAMP
+        now = datetime.utcnow()
+        if as_of in _GLOBAL_INVENTORY_CACHE and _GLOBAL_INVENTORY_TIMESTAMP and (now - _GLOBAL_INVENTORY_TIMESTAMP).total_seconds() < CACHE_TTL_SECONDS:
+            return _GLOBAL_INVENTORY_CACHE[as_of]
 
         res = self.client.table("inventory").select("*").order("date", desc=True).limit(500).execute()
         df = pd.DataFrame(res.data or [])
@@ -99,23 +136,27 @@ class AnalyticsEngine:
             return df
 
         df["date"] = pd.to_datetime(df["date"]).dt.date
-        if as_of is None:
-            as_of = df["date"].max()
-        df = df[df["date"] == as_of]
+        target_as_of = as_of if as_of is not None else df["date"].max()
+        filtered = df[df["date"] == target_as_of]
 
-        if as_of is None:
-            self._inventory_cache = df
-        return df
+        _GLOBAL_INVENTORY_CACHE[as_of] = filtered
+        _GLOBAL_INVENTORY_TIMESTAMP = now
+        return filtered
 
     def latest_data_date(self) -> date:
-        if self._latest_date_cache is not None:
-            return self._latest_date_cache
+        global _GLOBAL_LATEST_DATE, _GLOBAL_LATEST_DATE_TIMESTAMP
+        now = datetime.utcnow()
+        if _GLOBAL_LATEST_DATE is not None and _GLOBAL_LATEST_DATE_TIMESTAMP and (now - _GLOBAL_LATEST_DATE_TIMESTAMP).total_seconds() < CACHE_TTL_SECONDS:
+            return _GLOBAL_LATEST_DATE
+
         res = self.client.table("sales_daily").select("date").order("date", desc=True).limit(1).execute()
         if res.data and len(res.data) > 0:
-            self._latest_date_cache = pd.to_datetime(res.data[0]["date"]).date()
+            _GLOBAL_LATEST_DATE = pd.to_datetime(res.data[0]["date"]).date()
         else:
-            self._latest_date_cache = date.today()
-        return self._latest_date_cache
+            _GLOBAL_LATEST_DATE = date.today()
+
+        _GLOBAL_LATEST_DATE_TIMESTAMP = now
+        return _GLOBAL_LATEST_DATE
 
     def period(self, days: int = 30):
         end = self.latest_data_date()
@@ -161,37 +202,41 @@ class AnalyticsEngine:
     def get_return_rate(self, days: int = 30, marketplace: str = None) -> dict:
         return self._kpi_with_growth("return_rate", days, marketplace)
 
-    def get_aov(self, days: int = 30, marketplace: str = None) -> dict:
+    def get_avg_order_value(self, days: int = 30, marketplace: str = None) -> dict:
         return self._kpi_with_growth("avg_order_value", days, marketplace)
 
-    def _kpi_with_growth(self, key: str, days: int, marketplace: str = None) -> dict:
+    def _kpi_with_growth(self, key: str, days: int = 30, marketplace: str = None) -> dict:
         start, end, prev_start, prev_end = self.period(days)
         df = self.sales_df(prev_start, end)
         if marketplace:
             df = df[df["marketplace_name"] == marketplace]
-        curr = self._kpis(df[(df["date"] >= start) & (df["date"] <= end)])
-        prev = self._kpis(df[(df["date"] >= prev_start) & (df["date"] <= prev_end)])
+        curr_df = df[(df["date"] >= start) & (df["date"] <= end)]
+        prev_df = df[(df["date"] >= prev_start) & (df["date"] <= prev_end)]
+        curr = self._kpis(curr_df)
+        prev = self._kpis(prev_df)
         return {
-            "value": curr[key], "previous": prev[key],
+            "value": curr[key],
+            "previous": prev[key],
             "growth_pct": self.pct_change(curr[key], prev[key]),
         }
 
-    def get_all_kpis_with_growth(self, days: int = 30, marketplace: str = None) -> dict:
+    def get_business_summary(self, days: int = 30) -> dict:
         start, end, prev_start, prev_end = self.period(days)
         df = self.sales_df(prev_start, end)
-        if marketplace:
-            df = df[df["marketplace_name"] == marketplace]
-        curr = self._kpis(df[(df["date"] >= start) & (df["date"] <= end)])
-        prev = self._kpis(df[(df["date"] >= prev_start) & (df["date"] <= prev_end)])
-
+        curr_df = df[(df["date"] >= start) & (df["date"] <= end)]
+        prev_df = df[(df["date"] >= prev_start) & (df["date"] <= prev_end)]
+        curr = self._kpis(curr_df)
+        prev = self._kpis(prev_df)
         res = {}
-        for key in ["revenue", "orders", "conversion_rate", "return_rate", "avg_order_value"]:
+        for key in ["revenue", "orders", "units_sold", "visits", "conversion_rate", "avg_order_value", "return_rate"]:
             res[key] = {
                 "value": curr[key],
                 "previous": prev[key],
                 "growth_pct": self.pct_change(curr[key], prev[key]),
             }
         return res
+
+    get_all_kpis_with_growth = get_business_summary
 
     def get_growth(self, key: str, days: int = 30, marketplace: str = None) -> float:
         return self._kpi_with_growth(key, days, marketplace)["growth_pct"]
@@ -251,102 +296,85 @@ class AnalyticsEngine:
     def get_marketplace_performance(self, days: int = 30) -> list:
         start, end, prev_start, prev_end = self.period(days)
         df = self.sales_df(prev_start, end)
-        results = []
-        total = 0
-        for mkt, sub in df.groupby("marketplace_name"):
-            curr = self._kpis(sub[(sub["date"] >= start) & (sub["date"] <= end)])
-            prev = self._kpis(sub[(sub["date"] >= prev_start) & (sub["date"] <= prev_end)])
-            growth = self.pct_change(curr["revenue"], prev["revenue"])
-            total += curr["revenue"]
-            results.append({
-                "marketplace": mkt, "revenue": curr["revenue"], "revenue_growth_pct": growth,
-                "orders": curr["orders"], "units_sold": curr["units_sold"],
-                "conversion_rate": curr["conversion_rate"], "avg_order_value": curr["avg_order_value"],
-                "return_rate": curr["return_rate"],
-            })
-        for r in results:
-            r["revenue_contribution_pct"] = round((r["revenue"] / total * 100) if total else 0, 2)
-        return sorted(results, key=lambda r: r["revenue"], reverse=True)
-
-    def get_product_table(self, days: int = 30, marketplace: str = None) -> list:
-        start, end, _, _ = self.period(days)
-        df = self.sales_df(start, end)
-        if marketplace:
-            df = df[df["marketplace_name"] == marketplace]
         if df.empty:
             return []
+        curr = df[(df["date"] >= start) & (df["date"] <= end)]
+        prev = df[(df["date"] >= prev_start) & (df["date"] <= prev_end)]
+        tot_rev = curr["revenue"].sum() or 1.0
 
-        inv_df = self.inventory_df()
-        stock_by_product = inv_df.groupby("product_id")["stock"].sum().to_dict() if not inv_df.empty else {}
+        out = []
+        mkts = sorted([m for m in curr["marketplace_name"].dropna().unique()])
+        for m in mkts:
+            c = curr[curr["marketplace_name"] == m]
+            p = prev[prev["marketplace_name"] == m]
+            c_k = self._kpis(c)
+            p_k = self._kpis(p)
+            out.append({
+                "marketplace": m,
+                "revenue": c_k["revenue"],
+                "revenue_growth_pct": self.pct_change(c_k["revenue"], p_k["revenue"]),
+                "orders": c_k["orders"],
+                "units_sold": c_k["units_sold"],
+                "conversion_rate": c_k["conversion_rate"],
+                "avg_order_value": c_k["avg_order_value"],
+                "return_rate": c_k["return_rate"],
+                "revenue_contribution_pct": round(c_k["revenue"] / tot_rev * 100, 2),
+            })
+        return out
 
-        cat_grouped = df.groupby("category").agg(total_returns=("returns", "sum"), total_units=("units_sold", "sum"))
-        cat_return_rates = (cat_grouped["total_returns"] / cat_grouped["total_units"] * 100).fillna(0).to_dict()
+    def get_product_table(self, days: int = 30) -> list:
+        start, end, prev_start, prev_end = self.period(days)
+        df = self.sales_df(prev_start, end)
+        if df.empty:
+            return []
+        curr = df[(df["date"] >= start) & (df["date"] <= end)]
+        prev = df[(df["date"] >= prev_start) & (df["date"] <= prev_end)]
+        inv = self.inventory_df()
 
-        prod_agg = df.groupby("product_id").agg(
-            sku=("sku", "first"),
-            product_name=("product_name", "first"),
-            category=("category", "first"),
-            price=("price", "first"),
-            marketplace_count=("marketplace_name", "nunique"),
-            marketplace_first=("marketplace_name", "first"),
-            revenue=("revenue", "sum"),
-            orders=("orders", "sum"),
-            units_sold=("units_sold", "sum"),
-            visits=("visits", "sum"),
-            returns=("returns", "sum"),
+        grouped = curr.groupby(["product_id", "product_name", "category"]).agg(
+            revenue=("revenue", "sum"), units_sold=("units_sold", "sum"),
+            orders=("orders", "sum"), visits=("visits", "sum"), returns=("returns", "sum"),
         ).reset_index()
 
+        prev_grouped = prev.groupby("product_id").agg(revenue=("revenue", "sum")).to_dict()["revenue"]
+
         rows = []
-        for _, row in prod_agg.iterrows():
+        for _, row in grouped.iterrows():
             pid = int(row["product_id"])
-            rev = round(float(row["revenue"]), 2)
-            units = int(row["units_sold"])
-            visits = int(row["visits"])
-            orders = int(row["orders"])
-            returns = int(row["returns"])
-            price = float(row["price"])
-            cat = str(row["category"])
+            c_rev = float(row["revenue"])
+            p_rev = float(prev_grouped.get(pid, 0.0))
+            velocity = round(float(row["units_sold"]) / max(days, 1), 2)
+            stock = float(inv[inv["product_id"] == pid]["stock"].sum()) if not inv.empty else 0.0
+            dos = round(stock / velocity, 1) if velocity > 0 else None
 
-            conv_rate = round((orders / visits * 100) if visits else 0.0, 2)
-            ret_rate = round((returns / units * 100) if units else 0.0, 2)
-            p_inv = int(stock_by_product.get(pid, 0))
-            velocity = round(units / max(days, 1), 2)
-            dos = round(p_inv / velocity, 1) if velocity > 0 else None
-            cat_avg_return = cat_return_rates.get(cat, 0.0)
+            # Estimate exposure if DOS is below 14 days
+            prods = self._get_products_df()
+            price = 0.0
+            if not prods.empty:
+                m_prod = prods[prods["product_id"] == pid]
+                if not m_prod.empty:
+                    price = float(m_prod["price"].iloc[0])
 
-            revenue_at_risk = round(velocity * min(dos or 999, 14) * price, 2) if dos is not None and dos < 14 else 0.0
-
-            status = "Healthy"
-            if dos is not None and dos < 7:
-                status = "Critical"
-            elif dos is not None and dos < 14:
-                status = "Needs Attention"
-            if ret_rate > cat_avg_return * 1.8 and ret_rate > 8:
-                status = "Critical"
-
-            mkt_label = str(row["marketplace_first"]) if row["marketplace_count"] == 1 else "Multiple"
+            rev_at_risk = round(velocity * max(1.0, 14.0 - (dos or 0.0)) * price, 2) if (dos is not None and dos < 14) else 0.0
 
             rows.append({
-                "product_id": pid, "sku": row["sku"], "product": row["product_name"],
-                "category": cat, "marketplace": mkt_label, "revenue": rev,
-                "units_sold": units, "conversion_rate": conv_rate, "return_rate": ret_rate,
-                "category_avg_return_rate": round(cat_avg_return, 2), "inventory": p_inv,
-                "sales_velocity": velocity, "days_of_stock": dos,
-                "revenue_at_risk": revenue_at_risk, "status": status,
+                "product_id": pid,
+                "product": row["product_name"],
+                "category": row["category"],
+                "revenue": round(c_rev, 2),
+                "revenue_growth_pct": self.pct_change(c_rev, p_rev),
+                "units_sold": int(row["units_sold"]),
+                "conversion_rate": round((row["orders"] / row["visits"] * 100) if row["visits"] else 0.0, 2),
+                "days_of_stock": dos,
+                "sales_velocity": velocity,
+                "revenue_at_risk": rev_at_risk,
             })
+        return rows
 
-        return sorted(rows, key=lambda r: r["revenue"], reverse=True)
-
-    def get_business_summary(self, days: int = 30) -> dict:
-        kpis = self.get_all_kpis_with_growth(days)
-        return {
-            "revenue": kpis["revenue"],
-            "orders": kpis["orders"],
-            "conversion_rate": kpis["conversion_rate"],
-            "return_rate": kpis["return_rate"],
-            "avg_order_value": kpis["avg_order_value"],
-        }
-
-
-def get_analytics_engine(client: Client = None) -> AnalyticsEngine:
-    return AnalyticsEngine(client)
+    def get_revenue_trend(self, days: int = 30) -> list:
+        start, end, _, _ = self.period(days)
+        df = self.sales_df(start, end)
+        if df.empty:
+            return []
+        daily = df.groupby("date")["revenue"].sum().reset_index()
+        return [{"date": str(r["date"]), "revenue": round(float(r["revenue"]), 2)} for _, r in daily.iterrows()]
