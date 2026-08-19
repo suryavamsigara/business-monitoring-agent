@@ -34,8 +34,10 @@ class MonitoringService:
             if not rule:
                 continue
             series = self.engine.daily_series(kpi_name, self.days)
-            a = self.detector.detect_rolling_baseline(kpi_name, series, rule.threshold_value,
-                                                        entity_type="business", entity_id=None, entity_name="Business-wide")
+            a = self.detector.detect_rolling_baseline(
+                kpi_name, series, rule.threshold_value,
+                entity_type="business", entity_id=None, entity_name="Business-wide"
+            )
             if a:
                 anomalies.append(a)
 
@@ -54,7 +56,7 @@ class MonitoringService:
                 if a:
                     anomalies.append(a)
 
-        # Product-level inventory and compound checks
+        # Product-level inventory checks
         product_table = self.engine.get_product_table(days=self.days)
         inv_rule = rules.get("inventory_days")
         if inv_rule:
@@ -70,7 +72,18 @@ class MonitoringService:
         # Compound: conversion issue & inventory-driven risk per product
         self._detect_compound_product_anomalies(anomalies, product_table)
 
-        return anomalies
+        # Deduplicate anomalies for the same entity and KPI
+        unique_anomalies: dict[str, DetectedAnomaly] = {}
+        for a in anomalies:
+            key = f"{a.kpi_name}:{a.entity_type or 'business'}:{a.entity_id or 0}:{a.marketplace_id or 0}"
+            if key not in unique_anomalies:
+                unique_anomalies[key] = a
+            else:
+                existing = unique_anomalies[key]
+                if a.detection_method == "compound" or abs(a.deviation_pct) > abs(existing.deviation_pct):
+                    unique_anomalies[key] = a
+
+        return list(unique_anomalies.values())
 
     def _detect_compound_product_anomalies(self, anomalies: list[DetectedAnomaly], product_table: list):
         start, end, prev_start, prev_end = self.engine.period(self.days)

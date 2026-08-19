@@ -46,12 +46,21 @@ class AlertService:
         det_rank = SEVERITY_RANK.get(severity_result.severity, 1)
         final_severity = severity_result.severity if det_rank >= llm_rank else investigation.severity.capitalize()
 
-        anomaly_record = self.anomalies.create(
-            kpi_name=anomaly.kpi_name, actual_value=anomaly.actual_value, expected_value=anomaly.expected_value,
-            deviation_pct=anomaly.deviation_pct, score=severity_result.score, severity=final_severity,
-            entity_type=anomaly.entity_type, entity_id=anomaly.entity_id, marketplace_id=anomaly.marketplace_id,
-            detection_method=anomaly.detection_method, anomaly_metadata=anomaly.metadata,
-        )
+        anomaly_id = getattr(anomaly, "id", None)
+        if anomaly_id:
+            anomaly_record = self.anomalies.get(anomaly_id)
+            if anomaly_record:
+                self.client.table("anomalies").update({
+                    "score": severity_result.score,
+                    "severity": final_severity
+                }).eq("id", anomaly_id).execute()
+        else:
+            anomaly_record = self.anomalies.create(
+                kpi_name=anomaly.kpi_name, actual_value=anomaly.actual_value, expected_value=anomaly.expected_value,
+                deviation_pct=anomaly.deviation_pct, score=severity_result.score, severity=final_severity,
+                entity_type=anomaly.entity_type, entity_id=anomaly.entity_id, marketplace_id=anomaly.marketplace_id,
+                detection_method=anomaly.detection_method, anomaly_metadata=anomaly.metadata,
+            )
 
         dedup_key = self.build_dedup_key(anomaly)
         existing = self.alerts.find_active_by_dedup_key(dedup_key)
@@ -75,7 +84,7 @@ class AlertService:
             severity_worsened = SEVERITY_RANK.get(final_severity, 0) > SEVERITY_RANK.get(getattr(existing, "severity", "Low"), 0)
 
             updated = self.alerts.touch(
-                existing, anomaly_id=anomaly_record.id, run_id=run_id, severity=final_severity,
+                existing, anomaly_id=anomaly_record.id if anomaly_record else anomaly_id, run_id=run_id, severity=final_severity,
                 actual_value=anomaly.actual_value, expected_value=anomaly.expected_value,
                 deviation_pct=anomaly.deviation_pct, estimated_impact=impact_val,
                 summary=investigation.summary, evidence=evidence, contributors=contributors,
@@ -86,7 +95,7 @@ class AlertService:
             return updated, False
 
         alert = self.alerts.create(
-            anomaly_id=anomaly_record.id, run_id=run_id, title=title, kpi_name=anomaly.kpi_name,
+            anomaly_id=anomaly_record.id if anomaly_record else anomaly_id, run_id=run_id, title=title, kpi_name=anomaly.kpi_name,
             entity_type=anomaly.entity_type, entity_name=anomaly.entity_name, marketplace_id=anomaly.marketplace_id,
             severity=final_severity, actual_value=anomaly.actual_value, expected_value=anomaly.expected_value,
             deviation_pct=anomaly.deviation_pct, estimated_impact=impact_val,

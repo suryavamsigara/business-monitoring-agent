@@ -9,6 +9,7 @@ from app.services.monitoring_service import MonitoringService
 from app.services.investigation_service import InvestigationService
 from app.services.alert_service import AlertService
 from app.repositories.agent_run_repository import AgentRunRepository
+from app.repositories.anomaly_repository import AnomalyRepository
 from app.repositories.monitoring_rule_repository import MonitoringRuleRepository
 from app.analytics.anomaly_detector import DetectedAnomaly
 
@@ -23,6 +24,7 @@ class AgentOrchestrator:
         self.client = client
         self.trigger = trigger
         self.run_repo = AgentRunRepository(client)
+        self.anomaly_repo = AnomalyRepository(client)
         self.monitoring = MonitoringService(client)
         self.investigator = InvestigationService(client)
         self.alerts = AlertService(client)
@@ -46,18 +48,19 @@ class AgentOrchestrator:
                 investigation, tool_log, ai_mode = self._investigate(state, anomaly)
                 self._reason_and_prioritize(state, investigation)
                 if investigation.alert_required:
-                    was_created = self._alert(state, anomaly, investigation, ai_mode, tool_log)
+                    alert, was_created = self._alert(state, anomaly, investigation, ai_mode, tool_log)
                     if was_created:
                         alerts_created += 1
                     else:
                         alerts_updated += 1
 
+            total_alerts_evaluated = alerts_created + alerts_updated
             self.run_repo.complete_run(
                 run, status="Completed", kpis_checked=len(state.metrics.get("summary", {})) or 8,
-                anomalies_detected=len(state.anomalies), alerts_created=alerts_created,
+                anomalies_detected=len(state.anomalies), alerts_created=total_alerts_evaluated,
             )
             state.status = "completed"
-            state.alerts_created = alerts_created
+            state.alerts_created = total_alerts_evaluated
         except Exception as e:
             logger.exception("Agent run failed")
             try:
@@ -84,10 +87,31 @@ class AgentOrchestrator:
     def _detect(self, state: AgentState):
         step = self.run_repo.add_step(state.run_id, "Detect")
         anomalies = self.monitoring.detect_anomalies(state.metrics)
-        state.anomalies = [self._anomaly_to_dict(a) for a in anomalies]
+        
+        # Persist all detected anomalies to the anomalies table
+        saved_anomalies = []
+        for a in anomalies:
+            record = self.anomaly_repo.create(
+                kpi_name=a.kpi_name,
+                actual_value=a.actual_value,
+                expected_value=a.expected_value,
+                deviation_pct=a.deviation_pct,
+                score=a.score or 0.0,
+                severity=a.severity or "Medium",
+                entity_type=a.entity_type,
+                entity_id=a.entity_id,
+                marketplace_id=a.marketplace_id,
+                detection_method=a.detection_method,
+                anomaly_metadata=a.metadata,
+            )
+            a_dict = self._anomaly_to_dict(a)
+            a_dict["id"] = record.id
+            saved_anomalies.append(a_dict)
+
+        state.anomalies = saved_anomalies
         self.run_repo.complete_step(
-            step, output_summary=f"{len(anomalies)} anomalies detected.",
-            metadata={"count": len(anomalies)},
+            step, output_summary=f"{len(saved_anomalies)} anomalies detected.",
+            metadata={"count": len(saved_anomalies)},
         )
 
     def _select_candidates(self, anomalies: list[dict]) -> list[dict]:
@@ -129,12 +153,13 @@ class AgentOrchestrator:
             step, output_summary=f"Alert {'created' if created else 'updated (deduplicated)'}: {alert.title}",
             metadata={"alert_id": alert.id, "created": created},
         )
+        return alert, created
 
     # ---------- helpers ----------
 
     @staticmethod
     def _anomaly_to_dict(a: DetectedAnomaly) -> dict:
-        return {
+        d = {
             "kpi_name": a.kpi_name, "detection_method": a.detection_method,
             "actual_value": a.actual_value, "expected_value": a.expected_value,
             "deviation_pct": a.deviation_pct, "z_score": a.z_score,
@@ -142,7 +167,14 @@ class AgentOrchestrator:
             "entity_type": a.entity_type, "entity_id": a.entity_id, "entity_name": a.entity_name,
             "marketplace_id": a.marketplace_id, "metadata": a.metadata,
         }
+        if hasattr(a, "id") and a.id:
+            d["id"] = a.id
+        return d
 
     @staticmethod
     def _dict_to_anomaly(d: dict) -> DetectedAnomaly:
-        return DetectedAnomaly(**d)
+        clean_d = {k: v for k, v in d.items() if k != "id"}
+        anomaly = DetectedAnomaly(**clean_d)
+        if "id" in d:
+            anomaly.id = d["id"]
+        return anomaly
