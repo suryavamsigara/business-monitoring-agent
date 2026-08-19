@@ -1,4 +1,4 @@
-# Business Pulse Agent
+# Business Monitoring Agent
 
 > **Autonomous KPI Monitoring, Deterministic Anomaly Detection, and AI-Driven Investigation Platform for Multi-Channel E-Commerce.**
 
