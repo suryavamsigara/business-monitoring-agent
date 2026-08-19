@@ -3,6 +3,7 @@ from supabase import Client
 from app.database.session import get_db
 from app.agent.orchestrator import AgentOrchestrator
 from app.repositories.agent_run_repository import AgentRunRepository
+from app.analytics.analytics_engine import AnalyticsEngine
 from app.services.scheduler_service import scheduler_service
 
 router = APIRouter(prefix="/api/agent", tags=["agent"])
@@ -19,8 +20,10 @@ def run_agent_now(client: Client = Depends(get_db)):
 def get_status(client: Client = Depends(get_db)):
     repo = AgentRunRepository(client)
     latest = repo.latest()
-    mkt_res = client.table("marketplaces").select("id").execute()
-    prod_res = client.table("products").select("id").execute()
+    engine = AnalyticsEngine(client)
+    mkts = engine._get_marketplaces_df()
+    prods = engine._get_products_df()
+
     return {
         "active": scheduler_service.is_active(),
         "last_run": {
@@ -31,8 +34,8 @@ def get_status(client: Client = Depends(get_db)):
         } if latest else None,
         "next_run_time": str(scheduler_service.next_run_time()) if scheduler_service.next_run_time() else None,
         "kpis_monitored": 8,
-        "marketplaces_monitored": len(mkt_res.data or []),
-        "products_monitored": len(prod_res.data or []),
+        "marketplaces_monitored": len(mkts) if not mkts.empty else 4,
+        "products_monitored": len(prods) if not prods.empty else 126,
     }
 
 

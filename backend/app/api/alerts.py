@@ -31,10 +31,13 @@ def list_alerts(severity: Optional[str] = None, kpi_name: Optional[str] = None,
                  marketplace: Optional[str] = None, status: Optional[str] = None,
                  client: Client = Depends(get_db)):
     repo = AlertRepository(client)
+    engine = AnalyticsEngine(client)
     marketplace_id = None
     if marketplace:
-        mkt_res = client.table("marketplaces").select("id").eq("name", marketplace).execute()
-        marketplace_id = mkt_res.data[0]["id"] if mkt_res.data else -1
+        mkts = engine._get_marketplaces_df()
+        if not mkts.empty:
+            matched = mkts[mkts["marketplace_name"] == marketplace]
+            marketplace_id = int(matched["marketplace_id"].iloc[0]) if not matched.empty else -1
     alerts = repo.list(severity=severity, kpi_name=kpi_name, marketplace_id=marketplace_id, status=status)
     return {"alerts": [_serialize(a) for a in alerts], "total": len(alerts), "counts_by_severity": repo.counts_by_severity()}
 
@@ -51,8 +54,10 @@ def get_alert(alert_id: int, client: Client = Depends(get_db)):
     engine = AnalyticsEngine(client)
     marketplace_name = None
     if alert.marketplace_id:
-        mkt_res = client.table("marketplaces").select("name").eq("id", alert.marketplace_id).execute()
-        marketplace_name = mkt_res.data[0]["name"] if mkt_res.data else None
+        mkts = engine._get_marketplaces_df()
+        if not mkts.empty:
+            matched = mkts[mkts["marketplace_id"] == alert.marketplace_id]
+            marketplace_name = matched["marketplace_name"].iloc[0] if not matched.empty else None
     kpi_for_series = "revenue" if alert.kpi_name == "marketplace_revenue" else alert.kpi_name
     if kpi_for_series in ("revenue", "orders", "conversion_rate", "return_rate", "avg_order_value"):
         series = engine.daily_series(kpi_for_series, days=30, marketplace=marketplace_name)
