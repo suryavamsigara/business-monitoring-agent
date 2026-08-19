@@ -1,20 +1,20 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
-import { 
-  Activity, 
-  Bell, 
-  Terminal, 
-  Sliders, 
-  Bot, 
+import {
+  Activity,
+  Bell,
+  Terminal,
+  Sliders,
+  Bot,
   Sparkles
 } from "lucide-react";
 import { cn } from "../utils/cn";
 
-export function Sidebar({ 
-  alertCount = 0, 
-  criticalCount = 0, 
-  onOpenAssistant, 
-  agentStatus = null 
+export function Sidebar({
+  alertCount = 0,
+  criticalCount = 0,
+  onOpenAssistant,
+  agentStatus = null
 }) {
   const navItems = [
     {
@@ -77,7 +77,7 @@ export function Sidebar({
                   cn(
                     "flex items-center justify-between px-3.5 py-2.5 rounded-lg text-xs font-medium transition-colors group",
                     isActive
-                      ? "bg-slate-900 text-white font-semibold shadow-xs"
+                      ? "bg-indigo-50 text-indigo-600 font-semibold"
                       : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/80"
                   )
                 }
@@ -88,7 +88,7 @@ export function Sidebar({
                       <Icon
                         className={cn(
                           "w-4 h-4 transition-colors",
-                          isActive ? "text-white" : "text-slate-500 group-hover:text-slate-900"
+                          isActive ? "text-indigo-600" : "text-slate-500 group-hover:text-slate-900"
                         )}
                       />
                       <span>{item.label}</span>
@@ -114,21 +114,6 @@ export function Sidebar({
 
       {/* Bottom Tools & Status */}
       <div className="p-3 space-y-2 border-t border-slate-100">
-        {/* Agent Assistant Button */}
-        <button
-          onClick={onOpenAssistant}
-          className="w-full flex items-center justify-between p-3 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-800 text-xs font-medium transition-colors group shadow-xs"
-        >
-          <div className="flex items-center gap-2.5">
-            <Bot className="w-4 h-4 text-slate-700" />
-            <div className="text-left">
-              <div className="font-semibold text-slate-900">Agent Assistant</div>
-              <div className="text-[10px] text-slate-500">Ask about detections</div>
-            </div>
-          </div>
-          <Sparkles className="w-3.5 h-3.5 text-slate-500" />
-        </button>
-
         {/* Live Engine Status Banner */}
         <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-[11px] text-slate-600 font-mono">
           <div className="flex items-center justify-between mb-1">
