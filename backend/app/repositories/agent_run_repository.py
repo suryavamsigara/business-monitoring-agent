@@ -2,6 +2,7 @@ from datetime import datetime
 from supabase import Client
 from app.analytics.anomaly_detector import clean_num
 from app.utils.record import RowRecord
+from app.utils.query_retry import execute_with_retry
 
 
 class AgentRunRepository:
@@ -9,7 +10,9 @@ class AgentRunRepository:
         self.client = client
 
     def create_run(self, trigger: str = "manual") -> RowRecord:
-        max_res = self.client.table("agent_runs").select("id").order("id", desc=True).limit(1).execute()
+        max_res = execute_with_retry(
+            self.client.table("agent_runs").select("id").order("id", desc=True).limit(1)
+        )
         next_id = (max_res.data[0]["id"] + 1) if (max_res.data and len(max_res.data) > 0) else 1
 
         payload = {
@@ -18,7 +21,7 @@ class AgentRunRepository:
             "status": "Running",
             "started_at": datetime.utcnow().isoformat(),
         }
-        res = self.client.table("agent_runs").insert(payload).execute()
+        res = execute_with_retry(self.client.table("agent_runs").insert(payload))
         data = res.data[0] if res.data else payload
         data["steps"] = []
         return RowRecord(data)
@@ -33,12 +36,14 @@ class AgentRunRepository:
         for k, v in fields.items():
             payload[k] = clean_num(v)
 
-        res = self.client.table("agent_runs").update(payload).eq("id", run.id).execute()
+        res = execute_with_retry(self.client.table("agent_runs").update(payload).eq("id", run.id))
         updated_data = res.data[0] if res.data else {**run.to_dict(), **payload}
         return RowRecord(updated_data)
 
     def add_step(self, run_id: int, step_name: str) -> RowRecord:
-        max_res = self.client.table("agent_steps").select("id").order("id", desc=True).limit(1).execute()
+        max_res = execute_with_retry(
+            self.client.table("agent_steps").select("id").order("id", desc=True).limit(1)
+        )
         next_id = (max_res.data[0]["id"] + 1) if (max_res.data and len(max_res.data) > 0) else 1
 
         payload = {
@@ -48,7 +53,7 @@ class AgentRunRepository:
             "status": "Running",
             "started_at": datetime.utcnow().isoformat(),
         }
-        res = self.client.table("agent_steps").insert(payload).execute()
+        res = execute_with_retry(self.client.table("agent_steps").insert(payload))
         return RowRecord(res.data[0] if res.data else payload)
 
     def complete_step(self, step: RowRecord, status: str = "Completed", output_summary: str = None, metadata: dict = None) -> RowRecord:
@@ -69,21 +74,25 @@ class AgentRunRepository:
             "step_metadata": clean_num(metadata or {}),
         }
         if hasattr(step, "id") and step.id:
-            res = self.client.table("agent_steps").update(payload).eq("id", step.id).execute()
+            res = execute_with_retry(self.client.table("agent_steps").update(payload).eq("id", step.id))
             return RowRecord(res.data[0] if res.data else {**step.to_dict(), **payload})
         return RowRecord({**step.to_dict(), **payload})
 
     def get(self, run_id: int) -> RowRecord | None:
-        res = self.client.table("agent_runs").select("*").eq("id", run_id).execute()
+        res = execute_with_retry(self.client.table("agent_runs").select("*").eq("id", run_id))
         if not res.data:
             return None
         run_data = res.data[0]
-        steps_res = self.client.table("agent_steps").select("*").eq("run_id", run_id).order("id", desc=False).execute()
+        steps_res = execute_with_retry(
+            self.client.table("agent_steps").select("*").eq("run_id", run_id).order("id", desc=False)
+        )
         run_data["steps"] = [RowRecord(s) for s in (steps_res.data or [])]
         return RowRecord(run_data)
 
     def list(self, limit: int = 50) -> list[RowRecord]:
-        res = self.client.table("agent_runs").select("*").order("id", desc=True).limit(limit).execute()
+        res = execute_with_retry(
+            self.client.table("agent_runs").select("*").order("id", desc=True).limit(limit)
+        )
         runs = []
         for r in (res.data or []):
             r["steps"] = []
@@ -91,22 +100,30 @@ class AgentRunRepository:
         return runs
 
     def latest(self) -> RowRecord | None:
-        res = self.client.table("agent_runs").select("*").order("id", desc=True).limit(1).execute()
+        res = execute_with_retry(
+            self.client.table("agent_runs").select("*").order("id", desc=True).limit(1)
+        )
         if not res.data:
             return None
         run_data = res.data[0]
-        steps_res = self.client.table("agent_steps").select("*").eq("run_id", run_data["id"]).order("id", desc=False).execute()
+        steps_res = execute_with_retry(
+            self.client.table("agent_steps").select("*").eq("run_id", run_data["id"]).order("id", desc=False)
+        )
         run_data["steps"] = [RowRecord(s) for s in (steps_res.data or [])]
         return RowRecord(run_data)
 
     def cleanup_abandoned_runs(self):
-        res = self.client.table("agent_runs").select("id").eq("status", "Running").execute()
+        res = execute_with_retry(
+            self.client.table("agent_runs").select("id").eq("status", "Running")
+        )
         for r in (res.data or []):
-            steps = self.client.table("agent_steps").select("id").eq("run_id", r["id"]).execute()
+            steps = execute_with_retry(
+                self.client.table("agent_steps").select("id").eq("run_id", r["id"])
+            )
             if not steps.data:
-                self.client.table("agent_runs").delete().eq("id", r["id"]).execute()
+                execute_with_retry(self.client.table("agent_runs").delete().eq("id", r["id"]))
             else:
-                self.client.table("agent_runs").update({
+                execute_with_retry(self.client.table("agent_runs").update({
                     "status": "Completed",
                     "completed_at": datetime.utcnow().isoformat()
-                }).eq("id", r["id"]).execute()
+                }).eq("id", r["id"]))

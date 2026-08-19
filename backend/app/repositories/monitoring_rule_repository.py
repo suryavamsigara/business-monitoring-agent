@@ -1,5 +1,6 @@
 from supabase import Client
 from app.utils.record import RowRecord
+from app.utils.query_retry import execute_with_retry
 
 DEFAULT_RULES = [
     {"kpi_name": "revenue", "threshold_type": "rolling_baseline", "threshold_value": 0.10, "severity": "High", "cooldown_minutes": 120},
@@ -21,30 +22,30 @@ class MonitoringRuleRepository:
         q = self.client.table("monitoring_rules").select("*")
         if enabled_only:
             q = q.eq("enabled", True)
-        res = q.execute()
+        res = execute_with_retry(q)
         return [RowRecord(r) for r in (res.data or [])]
 
     def get(self, rule_id: int) -> RowRecord | None:
-        res = self.client.table("monitoring_rules").select("*").eq("id", rule_id).execute()
+        res = execute_with_retry(self.client.table("monitoring_rules").select("*").eq("id", rule_id))
         return RowRecord(res.data[0]) if res.data else None
 
     def get_by_kpi(self, kpi_name: str) -> RowRecord | None:
-        res = self.client.table("monitoring_rules").select("*").eq("kpi_name", kpi_name).execute()
+        res = execute_with_retry(self.client.table("monitoring_rules").select("*").eq("kpi_name", kpi_name))
         return RowRecord(res.data[0]) if res.data else None
 
     def create(self, **kwargs) -> RowRecord:
-        res = self.client.table("monitoring_rules").insert(kwargs).execute()
+        res = execute_with_retry(self.client.table("monitoring_rules").insert(kwargs))
         return RowRecord(res.data[0]) if res.data else RowRecord(kwargs)
 
     def update(self, rule_id: int, **fields) -> RowRecord | None:
         clean_fields = {k: v for k, v in fields.items() if v is not None}
         if not clean_fields:
             return self.get(rule_id)
-        res = self.client.table("monitoring_rules").update(clean_fields).eq("id", rule_id).execute()
+        res = execute_with_retry(self.client.table("monitoring_rules").update(clean_fields).eq("id", rule_id))
         return RowRecord(res.data[0]) if res.data else None
 
     def ensure_defaults(self):
-        res = self.client.table("monitoring_rules").select("id").limit(1).execute()
+        res = execute_with_retry(self.client.table("monitoring_rules").select("id").limit(1))
         if res.data and len(res.data) > 0:
             return
-        self.client.table("monitoring_rules").insert(DEFAULT_RULES).execute()
+        execute_with_retry(self.client.table("monitoring_rules").insert(DEFAULT_RULES))
