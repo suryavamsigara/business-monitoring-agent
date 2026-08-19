@@ -1,6 +1,19 @@
 /**
  * Business formatting utilities for currency, metrics, percentages, and timestamps.
+ * Formats all date/time strings in Indian Standard Time (IST / Asia/Kolkata).
  */
+
+function parseUtcDate(dateString) {
+  if (!dateString) return null;
+  if (dateString instanceof Date) return dateString;
+  let str = String(dateString).trim();
+  // If string contains date and time but lacks a timezone indicator (Z or +/- offset), assume UTC
+  if (str.includes("T") && !str.endsWith("Z") && !str.includes("+") && !str.slice(10).includes("-")) {
+    str += "Z";
+  }
+  const d = new Date(str);
+  return isNaN(d.getTime()) ? new Date(dateString) : d;
+}
 
 export function formatCurrency(value, compact = false) {
   if (value === null || value === undefined || isNaN(value)) return "—";
@@ -46,10 +59,12 @@ export function formatPercent(value, includeSign = true) {
 
 export function formatRelativeTime(dateString) {
   if (!dateString) return "—";
-  const date = new Date(dateString);
+  const date = parseUtcDate(dateString);
+  if (!date || isNaN(date.getTime())) return "—";
   const now = new Date();
-  const diffSec = Math.floor((now - date) / 1000);
+  const diffSec = Math.floor((now.getTime() - date.getTime()) / 1000);
 
+  if (diffSec < 0) return "Just now";
   if (diffSec < 10) return "Just now";
   if (diffSec < 60) return `${diffSec}s ago`;
   const diffMin = Math.floor(diffSec / 60);
@@ -60,6 +75,7 @@ export function formatRelativeTime(dateString) {
   if (diffDays < 7) return `${diffDays}d ago`;
 
   return date.toLocaleDateString("en-IN", {
+    timeZone: "Asia/Kolkata",
     month: "short",
     day: "numeric",
     hour: "2-digit",
@@ -69,8 +85,11 @@ export function formatRelativeTime(dateString) {
 
 export function formatDateTime(dateString) {
   if (!dateString) return "—";
-  const date = new Date(dateString);
+  const date = parseUtcDate(dateString);
+  if (!date || isNaN(date.getTime())) return "—";
+
   return date.toLocaleString("en-IN", {
+    timeZone: "Asia/Kolkata",
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -78,16 +97,21 @@ export function formatDateTime(dateString) {
     minute: "2-digit",
     second: "2-digit",
     hour12: true,
-  });
+  }) + " IST";
 }
 
-export function formatTime(dateString) {
+export function formatTime(dateString, showIST = true) {
   if (!dateString) return "—";
-  const date = new Date(dateString);
-  return date.toLocaleTimeString("en-IN", {
+  const date = parseUtcDate(dateString);
+  if (!date || isNaN(date.getTime())) return "—";
+
+  const timeStr = date.toLocaleTimeString("en-IN", {
+    timeZone: "Asia/Kolkata",
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
     hour12: true,
   });
+
+  return showIST ? `${timeStr} IST` : timeStr;
 }
