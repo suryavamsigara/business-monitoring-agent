@@ -96,7 +96,7 @@ class AssistantService:
                 messages=messages,
                 tools=registry.schemas(),
                 tool_choice="auto",
-                max_tokens=1500,
+                extra_body={"thinking": {"type": "disabled"}},
             )
             msg = resp.choices[0].message
 
@@ -120,7 +120,7 @@ class AssistantService:
                 final_resp = client.chat.completions.create(
                     model=settings.LLM_MODEL,
                     messages=messages,
-                    max_tokens=1500,
+                    extra_body={"thinking": {"type": "disabled"}},
                 )
                 final_content = final_resp.choices[0].message.content
                 return {"answer": final_content or "Telemetry analysis complete.", "mode": "llm", "tool_calls": tool_log}
