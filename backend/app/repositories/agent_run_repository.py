@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from supabase import Client
 from app.analytics.anomaly_detector import clean_num
 from app.utils.record import RowRecord
@@ -10,16 +10,10 @@ class AgentRunRepository:
         self.client = client
 
     def create_run(self, trigger: str = "manual") -> RowRecord:
-        max_res = execute_with_retry(
-            self.client.table("agent_runs").select("id").order("id", desc=True).limit(1)
-        )
-        next_id = (max_res.data[0]["id"] + 1) if (max_res.data and len(max_res.data) > 0) else 1
-
         payload = {
-            "id": next_id,
             "trigger": trigger,
             "status": "Running",
-            "started_at": datetime.utcnow().isoformat(),
+            "started_at": datetime.now(timezone.utc).isoformat(),
         }
         res = execute_with_retry(self.client.table("agent_runs").insert(payload))
         data = res.data[0] if res.data else payload
@@ -27,7 +21,7 @@ class AgentRunRepository:
         return RowRecord(data)
 
     def complete_run(self, run: RowRecord, **fields) -> RowRecord:
-        completed_at = datetime.utcnow().isoformat()
+        completed_at = datetime.now(timezone.utc).isoformat()
         status = fields.pop("status", "Completed")
         payload = {
             "status": status,
@@ -41,28 +35,30 @@ class AgentRunRepository:
         return RowRecord(updated_data)
 
     def add_step(self, run_id: int, step_name: str) -> RowRecord:
-        max_res = execute_with_retry(
-            self.client.table("agent_steps").select("id").order("id", desc=True).limit(1)
-        )
-        next_id = (max_res.data[0]["id"] + 1) if (max_res.data and len(max_res.data) > 0) else 1
-
         payload = {
-            "id": next_id,
             "run_id": run_id,
             "step_name": step_name,
             "status": "Running",
-            "started_at": datetime.utcnow().isoformat(),
+            "started_at": datetime.now(timezone.utc).isoformat(),
         }
         res = execute_with_retry(self.client.table("agent_steps").insert(payload))
         return RowRecord(res.data[0] if res.data else payload)
 
     def complete_step(self, step: RowRecord, status: str = "Completed", output_summary: str = None, metadata: dict = None) -> RowRecord:
-        completed_at = datetime.utcnow()
+        completed_at = datetime.now(timezone.utc)
         duration_ms = 0
         if hasattr(step, "started_at") and step.started_at:
             try:
-                started = datetime.fromisoformat(str(step.started_at).replace("Z", ""))
-                duration_ms = max(1, int((completed_at - started).total_seconds() * 1000))
+                started_str = str(step.started_at).replace("Z", "")
+                if "+" in started_str:
+                    started_str = started_str.split("+")[0]
+                started = datetime.fromisoformat(started_str)
+                # Ensure naive vs aware comparison is safe
+                if started.tzinfo is None:
+                    completed_naive = completed_at.replace(tzinfo=None)
+                    duration_ms = max(1, int((completed_naive - started).total_seconds() * 1000))
+                else:
+                    duration_ms = max(1, int((completed_at - started).total_seconds() * 1000))
             except Exception:
                 duration_ms = 10
 
@@ -125,5 +121,5 @@ class AgentRunRepository:
             else:
                 execute_with_retry(self.client.table("agent_runs").update({
                     "status": "Completed",
-                    "completed_at": datetime.utcnow().isoformat()
+                    "completed_at": datetime.now(timezone.utc).isoformat()
                 }).eq("id", r["id"]))

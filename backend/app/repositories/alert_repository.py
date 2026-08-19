@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from supabase import Client
 from app.analytics.anomaly_detector import clean_num
 from app.utils.record import RowRecord
@@ -10,15 +10,9 @@ class AlertRepository:
         self.client = client
 
     def create(self, **kwargs) -> RowRecord:
-        cleaned = {k: clean_num(v) for k, v in kwargs.items()}
-        if "id" not in cleaned:
-            max_res = execute_with_retry(
-                self.client.table("alerts").select("id").order("id", desc=True).limit(1)
-            )
-            next_id = (max_res.data[0]["id"] + 1) if (max_res.data and len(max_res.data) > 0) else 1
-            cleaned["id"] = next_id
+        cleaned = {k: clean_num(v) for k, v in kwargs.items() if k != "id"}
 
-        now_iso = datetime.utcnow().isoformat()
+        now_iso = datetime.now(timezone.utc).isoformat()
         if "created_at" not in cleaned or not cleaned["created_at"]:
             cleaned["created_at"] = now_iso
         elif hasattr(cleaned["created_at"], "isoformat"):
@@ -62,7 +56,7 @@ class AlertRepository:
         return [RowRecord(r) for r in (res.data or [])]
 
     def update_status(self, alert_id: int, status: str) -> RowRecord | None:
-        now_iso = datetime.utcnow().isoformat()
+        now_iso = datetime.now(timezone.utc).isoformat()
         payload = {"status": status}
         if status == "Acknowledged":
             payload["acknowledged_at"] = now_iso
@@ -76,7 +70,7 @@ class AlertRepository:
 
     def touch(self, alert: RowRecord, **updates) -> RowRecord:
         cleaned = {k: clean_num(v) for k, v in updates.items()}
-        cleaned["last_detected_at"] = datetime.utcnow().isoformat()
+        cleaned["last_detected_at"] = datetime.now(timezone.utc).isoformat()
         cleaned["occurrence_count"] = (getattr(alert, "occurrence_count", 1) or 1) + 1
 
         res = execute_with_retry(self.client.table("alerts").update(cleaned).eq("id", alert.id))
