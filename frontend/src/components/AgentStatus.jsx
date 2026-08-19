@@ -1,17 +1,17 @@
 import React from "react";
 import { formatTime, formatRelativeTime } from "../utils/formatters";
-import { 
-  Play, 
-  RefreshCw, 
+import {
+  Play,
+  RefreshCw,
   Clock
 } from "lucide-react";
 import { cn } from "../utils/cn";
 
-export function AgentStatus({ 
-  status, 
-  onRunNow, 
-  isRunning = false, 
-  runProgress = null 
+export function AgentStatus({
+  status,
+  onRunNow,
+  isRunning = false,
+  runProgress = null
 }) {
   const {
     active = true,
@@ -35,16 +35,13 @@ export function AgentStatus({
 
             <span className="text-xs text-slate-500 font-mono flex items-center gap-1.5">
               <Clock className="w-3.5 h-3.5 text-slate-400" />
-              Interval: Every 15 mins
+              Interval: Runs every 24 hours
             </span>
           </div>
 
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2.5">
               Business Pulse Agent
-              <span className="text-xs font-mono font-medium px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
-                v1.0 Autonomous
-              </span>
             </h1>
             <p className="text-xs sm:text-sm text-slate-600 mt-1 max-w-2xl leading-relaxed">
               Autonomous KPI monitoring, deterministic anomaly detection, and AI-driven root-cause investigation.

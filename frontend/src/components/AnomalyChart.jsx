@@ -20,7 +20,12 @@ export function AnomalyChart({
 }) {
   const isInventory = kpiName?.includes("inventory") || kpiName?.includes("stock");
 
-  if (!data || data.length === 0) {
+  const chartData = (data || []).map((item) => ({
+    ...item,
+    actual: item.actual !== undefined ? item.actual : (item.revenue !== undefined ? item.revenue : (item.value !== undefined ? item.value : 0)),
+  }));
+
+  if (!chartData || chartData.length === 0) {
     if (isInventory) {
       return (
         <div className="rounded-xl border border-slate-200/90 bg-white p-5 shadow-sm">
@@ -149,7 +154,7 @@ export function AnomalyChart({
 
       <div className="h-64 sm:h-72 w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+          <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
             <defs>
               <linearGradient id="actualGradientClean" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#0f172a" stopOpacity={0.12} />

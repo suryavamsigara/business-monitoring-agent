@@ -64,7 +64,18 @@ export function Dashboard({
   };
 
   if (isLoading) {
-    return <LoadingState message="Connecting to telemetry engines..." />;
+    return (
+      <LoadingState
+        title="Business Pulse Telemetry"
+        messages={[
+          "Connecting to telemetry engines...",
+          "Ingesting multi-channel sales & inventory streams...",
+          "Evaluating 30-day rolling baselines & statistical thresholds...",
+          "Synthesizing catalog velocity & revenue at risk...",
+          "Finalizing executive monitoring overview...",
+        ]}
+      />
+    );
   }
 
   const alertCounts = pulseSummary?.alert_counts || { Critical: 0, High: 0, Medium: 0, Low: 0 };
