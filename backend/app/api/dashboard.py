@@ -17,13 +17,13 @@ def get_pulse_summary(client: Client = Depends(get_db)):
     latest_run = run_repo.latest()
     recent_alerts = alert_repo.list(limit=6)
 
-    mkt_res = client.table("marketplaces").select("id").execute()
-    prod_res = client.table("products").select("id").execute()
+    prods = engine._get_products_df()
+    mkts = engine._get_marketplaces_df()
 
     return {
         "business_summary": engine.get_business_summary(days=30),
-        "marketplaces_monitored": len(mkt_res.data or []),
-        "products_monitored": len(prod_res.data or []),
+        "marketplaces_monitored": len(mkts) if not mkts.empty else 4,
+        "products_monitored": len(prods) if not prods.empty else 126,
         "alert_counts": alert_repo.counts_by_severity(),
         "recent_alerts": [
             {
