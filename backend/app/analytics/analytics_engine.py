@@ -4,10 +4,14 @@ revenue, orders, units sold, conversion rate, return rate, AOV, growth %,
 sales velocity, inventory days, revenue at risk, marketplace performance.
 """
 from datetime import date, timedelta, datetime
+import time
+import logging
 import pandas as pd
 import numpy as np
 from supabase import Client
 from app.database.supabase_client import get_supabase
+
+logger = logging.getLogger("business_pulse.analytics_engine")
 
 # Global in-memory cache to eliminate redundant Supabase network roundtrips
 _GLOBAL_SALES_CACHE = {}
@@ -22,6 +26,19 @@ _GLOBAL_LATEST_DATE = None
 _GLOBAL_LATEST_DATE_TIMESTAMP = None
 
 CACHE_TTL_SECONDS = 180  # 3-minute TTL for fast instantaneous dashboard loading
+
+
+def _execute_with_retry(query, max_retries: int = 3):
+    """Executes a Supabase query with automatic retry for transient socket drops or HTTP/2 timeouts on Render."""
+    for attempt in range(max_retries):
+        try:
+            return query.execute()
+        except Exception as e:
+            if attempt == max_retries - 1:
+                logger.error("Supabase query failed after %d retries: %s", max_retries, e)
+                raise
+            logger.warning("Supabase query transient error (attempt %d/%d): %s. Retrying in %.1fs...", attempt + 1, max_retries, e, 0.3 * (attempt + 1))
+            time.sleep(0.3 * (attempt + 1))
 
 
 class AnalyticsEngine:
@@ -45,7 +62,8 @@ class AnalyticsEngine:
         if _GLOBAL_PRODUCTS_DF is not None and _GLOBAL_PRODUCTS_TIMESTAMP and (now - _GLOBAL_PRODUCTS_TIMESTAMP).total_seconds() < CACHE_TTL_SECONDS:
             return _GLOBAL_PRODUCTS_DF
 
-        res = self.client.table("products").select("id, name, category, price, cost, sku").execute()
+        q = self.client.table("products").select("id, name, category, price, cost, sku")
+        res = _execute_with_retry(q)
         df = pd.DataFrame(res.data or [])
         if not df.empty:
             df = df.rename(columns={"id": "product_id", "name": "product_name"})
@@ -59,7 +77,8 @@ class AnalyticsEngine:
         if _GLOBAL_MARKETPLACES_DF is not None and _GLOBAL_MARKETPLACES_TIMESTAMP and (now - _GLOBAL_MARKETPLACES_TIMESTAMP).total_seconds() < CACHE_TTL_SECONDS:
             return _GLOBAL_MARKETPLACES_DF
 
-        res = self.client.table("marketplaces").select("id, name").execute()
+        q = self.client.table("marketplaces").select("id, name")
+        res = _execute_with_retry(q)
         df = pd.DataFrame(res.data or [])
         if not df.empty:
             df = df.rename(columns={"id": "marketplace_id", "name": "marketplace_name"})
@@ -90,7 +109,8 @@ class AnalyticsEngine:
                 q = q.gte("date", start.isoformat())
             if end:
                 q = q.lte("date", end.isoformat())
-            res = q.range(offset, offset + page_size - 1).execute()
+            
+            res = _execute_with_retry(q.range(offset, offset + page_size - 1))
             rows = res.data or []
             all_rows.extend(rows)
             if len(rows) < page_size or len(all_rows) >= 30000:
@@ -130,7 +150,8 @@ class AnalyticsEngine:
         if as_of in _GLOBAL_INVENTORY_CACHE and _GLOBAL_INVENTORY_TIMESTAMP and (now - _GLOBAL_INVENTORY_TIMESTAMP).total_seconds() < CACHE_TTL_SECONDS:
             return _GLOBAL_INVENTORY_CACHE[as_of]
 
-        res = self.client.table("inventory").select("*").order("date", desc=True).limit(500).execute()
+        q = self.client.table("inventory").select("*").order("date", desc=True).limit(500)
+        res = _execute_with_retry(q)
         df = pd.DataFrame(res.data or [])
         if df.empty:
             return df
@@ -149,7 +170,8 @@ class AnalyticsEngine:
         if _GLOBAL_LATEST_DATE is not None and _GLOBAL_LATEST_DATE_TIMESTAMP and (now - _GLOBAL_LATEST_DATE_TIMESTAMP).total_seconds() < CACHE_TTL_SECONDS:
             return _GLOBAL_LATEST_DATE
 
-        res = self.client.table("sales_daily").select("date").order("date", desc=True).limit(1).execute()
+        q = self.client.table("sales_daily").select("date").order("date", desc=True).limit(1)
+        res = _execute_with_retry(q)
         if res.data and len(res.data) > 0:
             _GLOBAL_LATEST_DATE = pd.to_datetime(res.data[0]["date"]).date()
         else:
