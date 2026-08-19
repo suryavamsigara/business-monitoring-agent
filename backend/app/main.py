@@ -11,7 +11,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    scheduler_service.start()
+    scheduler_service.start(run_immediately=True)
     yield
     scheduler_service.stop()
 

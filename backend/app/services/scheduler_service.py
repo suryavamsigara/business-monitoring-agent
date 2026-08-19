@@ -3,6 +3,7 @@ SchedulerService: wraps APScheduler to run the monitoring cycle on a fixed
 interval using the Supabase client.
 """
 import logging
+from datetime import datetime
 from apscheduler.schedulers.background import BackgroundScheduler
 from app.config.settings import settings
 from app.database.supabase_client import get_supabase
@@ -17,15 +18,16 @@ class SchedulerService:
         self._scheduler = BackgroundScheduler()
         self._job = None
 
-    def start(self):
+    def start(self, run_immediately: bool = True):
         if self._scheduler.running:
             return
         self._job = self._scheduler.add_job(
             self.run_monitoring_cycle, "interval", minutes=self.interval_minutes,
+            next_run_time=datetime.now() if run_immediately else None,
             id="business_pulse_monitoring_cycle", replace_existing=True,
         )
         self._scheduler.start()
-        logger.info("Scheduler started: monitoring cycle every %s minutes", self.interval_minutes)
+        logger.info("Scheduler started (run_immediately=%s): monitoring cycle every %s minutes", run_immediately, self.interval_minutes)
 
     def stop(self):
         if self._scheduler.running:

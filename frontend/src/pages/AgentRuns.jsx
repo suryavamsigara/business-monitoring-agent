@@ -16,8 +16,8 @@ export function AgentRuns({ onRunNow, isRunning }) {
   const [runs, setRuns] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchRuns = async () => {
-    setIsLoading(true);
+  const fetchRuns = async (isBackground = false) => {
+    if (!isBackground) setIsLoading(true);
     try {
       const res = await agentApi.getRuns(50);
       if (res?.runs) {
@@ -26,13 +26,17 @@ export function AgentRuns({ onRunNow, isRunning }) {
     } catch (err) {
       console.error("Failed to load agent runs:", err);
     } finally {
-      setIsLoading(false);
+      if (!isBackground) setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchRuns();
-  }, []);
+    fetchRuns(false);
+    const interval = setInterval(() => {
+      fetchRuns(true);
+    }, isRunning ? 2000 : 8000);
+    return () => clearInterval(interval);
+  }, [isRunning]);
 
   if (isLoading) {
     return <LoadingState message="Loading agent execution audit history..." />;
